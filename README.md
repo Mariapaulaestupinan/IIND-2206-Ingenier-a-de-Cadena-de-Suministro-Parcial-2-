@@ -466,3 +466,24 @@ plt.show()
 </div>
 </details>
 
+#### Ejercicios 
+
+En esta sección se trabajarán ejercicios de ruta más corta que permitirán aplicar de manera integrada las distintas funcionalidades estudiadas previamente en la librería NetworkX.
+<details>
+<summary> Red de Distribución de Vacunas en Estados Unidos </summary>
+Una entidad nacional de salud pública en Estados Unidos enfrenta el reto de coordinar la distribución de vacunas entre distintas ciudades del país, considerando restricciones operativas asociadas al modo de transporte permitido a lo largo de la red y a las condiciones de refrigeración necesarias para garantizar la conservación adecuada de las vacunas durante su distribución.
+
+**Enunciado:** <a href="Arcos.xlsx?raw=true" download> Red de Distri.xlsx</a>
+
+📊 **Base de datos:** [Descargar archivo](archivo.xlsx?raw=true)
+</details>
+<details>
+<summary> Ejercicio Nivel Intermedio </summary>
+</details>
+<details>
+<summary> Ejercicio Nivel Dificil </summary>
+</details>
+
+
+
+
