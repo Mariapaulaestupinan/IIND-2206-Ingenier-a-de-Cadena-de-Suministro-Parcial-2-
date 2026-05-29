@@ -413,20 +413,18 @@ plt.axis("off")
 plt.tight_layout()
 plt.show()
 ```
-
-**▸ Visualizar el grafo y la ruta óptima con datos desde un archivo Excel**
-
-Para este caso el archivo Excel debe estar guardado en la misma carpeta del repositorio y debe contener las columnas `"Origen"`, `"Destino"` y `"Peso"`.
-
-```
-📁 repositorio/
-├── 📄 grafo.ipynb
-└── 📊 Arcos.xlsx
-```
+<div align="center">
+  <img src="grafo 1.png" width="600"/>
+</div>
+</details>
+<details>
+<summary> Visualizar el grafo y la ruta óptima con datos desde un archivo Excel </summary>
+El siguiente archivo contiene la estructura de red utilizada en este ejemplo. Cada fila representa un arco de la red, definido por su nodo de origen, su nodo de destino y el costo asociado al trayecto. [Descargar Arcos.xlsx](Arcos.xlsx)
 
 ```python
 import networkx as nx
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 # Construcción del grafo desde Excel
@@ -434,10 +432,10 @@ G = nx.DiGraph()
 df = pd.read_excel("Arcos.xlsx")
 
 for _, row in df.iterrows():
-    G.add_edge(row["Origen"], row["Destino"], weight=row["Peso"])
+    G.add_edge(row["Origen"], row["Destino"], weight=row["Costo"])
 
 # Obtener la ruta óptima
-ruta = nx.dijkstra_path(G, source="A", target="D", weight="weight")
+ruta = nx.dijkstra_path(G, source="A", target="K", weight="weight")
 
 # Identificar los arcos de la ruta óptima
 arcos_ruta = [(ruta[i], ruta[i + 1]) for i in range(len(ruta) - 1)]
@@ -453,15 +451,15 @@ nx.draw_networkx_edges(G, pos, edge_color="gray", arrows=True, arrowsize=20)
 # Resaltar la ruta óptima
 nx.draw_networkx_edges(G, pos, edgelist=arcos_ruta, edge_color="red", width=2.5, arrows=True, arrowsize=20)
 
-# Mostrar los pesos de los arcos
-etiquetas = nx.get_edge_attributes(G, "weight")
-nx.draw_networkx_edge_labels(G, pos, edge_labels=etiquetas)
+# Etiqueta: costo en km (desplazada hacia arriba)
+etiqueta = {(u, v): f"{d['weight']} km" for u, v, d in G.edges(data=True)}
+nx.draw_networkx_edge_labels(G, pos, edge_labels=etiqueta, font_size=9,
+                              label_pos=0.5, bbox=dict(alpha=0), verticalalignment="bottom")
 
 plt.title(f"Ruta óptima: {' → '.join(ruta)}")
 plt.axis("off")
 plt.tight_layout()
 plt.show()
 ```
-
 </details>
 
