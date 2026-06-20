@@ -1050,7 +1050,7 @@ Hora 18:00
 <summary> Red de distribución energética </summary>
 Hydrogen Logistics North America (HLNA) es una compañía de logística energética que coordina la distribución de hidrógeno verde y combustibles criogénicos (oxígeno e hidrógeno líquidos) entre centros de producción, plantas industriales y puertos de exportación distribuidos a lo largo de Estados Unidos y Canadá. Recientemente la empresa firmó un contrato para entregar un cargamento de 35 toneladas de hidrógeno verde desde su planta principal en Vancouver hacia el puerto de Chicago, donde será embarcado hacia Europa. Estos productos son altamente sensibles: requieren mantenimiento estricto de presión y temperatura, son inflamables y deben moverse por corredores logísticos certificados.
     
-**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20Red%20de%20distribuci%C3%B3n%20energ%C3%A9tica.pdf" download>Enunciado Red de distribución energética</a>
+**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20Red%20de%20distribuci%C3%B3n%20energ%C3%A9tica%20Estados%20Unidos.pdf" download>Enunciado Red de distribución energética</a>
 
 **Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Datos%20red%20de%20distribuci%C3%B3n%20energ%C3%A9tica.xlsx" download>Datos red de distribución energética</a>
 
