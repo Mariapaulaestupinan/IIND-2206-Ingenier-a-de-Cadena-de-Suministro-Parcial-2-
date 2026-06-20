@@ -1310,7 +1310,7 @@ print("=" * 70)
 **Resultado:**
 Ruta de menor costo (Vancouver → Chicago)
 
-| Métrica | Valor |
+| Métrica | Resultado |
 |--------|------|
 | Ruta | Vancouver → Toronto → Chicago |
 | Costo total | 18,518.88 USD |
@@ -1319,7 +1319,7 @@ Ruta de menor costo (Vancouver → Chicago)
 
 Ruta de menor tiempo (Vancouver → Chicago)
 
-| Métrica | Valor |
+| Métrica | Resultado |
 |--------|------|
 | Ruta | Vancouver → Seattle → Salt Lake City → Denver → Kansas City → Chicago |
 | Costo total | 22,627.49 USD |
