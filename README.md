@@ -28,6 +28,7 @@ A lo largo de los ejercicios, nos enfrentaremos con problemas en los que no solo
 
 - [NetworkX](#networkx)
 - [Funciones principales](#funciones-principales)
+- [Ejercicios](#ejercicios)
 
 ---
 
@@ -466,7 +467,9 @@ plt.show()
 </div>
 </details>
 
-#### Ejercicios
+### Ejercicios
+
+---
 
 En esta sección se trabajarán ejercicios de ruta más corta que permitirán aplicar de manera integrada las distintas funcionalidades estudiadas previamente en la librería NetworkX.
 <details>
