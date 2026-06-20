@@ -695,6 +695,316 @@ Una empresa de mensajería urbana en Bogotá necesita calcular la ruta de menor 
 
 **Solución:** 
 
+Importación de las librerías requeridas:
+
+```python
+import networkx as nx
+import pandas as pd
+import re
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+```
+Importación y carga de datos base:
+
+Carga la información inicial de la red vial desde el archivo Excel. Primero, se leen de manera independiente las diferentes hojas del archivo, donde cada una contiene información específica de la red, como distancias, velocidades, costos de peaje, cantidad de semáforos y restricciones de las vías.
+
+Posteriormente, se construye un único **DataFrame** consolidado tomando como base la información de distancias y agregando las variables complementarias provenientes de las demás hojas. De esta manera, se integra toda la información necesaria en una sola estructura de datos, facilitando su posterior procesamiento y análisis para la construcción de la red vial.
+
+```python
+Excel_Path = 'base_datos_red_vial_bogota.xlsx'
+
+df_dist = pd.read_excel(Excel_Path, sheet_name='Distancias')
+df_vel  = pd.read_excel(Excel_Path, sheet_name='Velocidad')
+df_pea  = pd.read_excel(Excel_Path, sheet_name='Peajes')
+df_sem  = pd.read_excel(Excel_Path, sheet_name='Número de semaforos')
+df_res  = pd.read_excel(Excel_Path, sheet_name='Restricciones')
+
+df = df_dist.copy()
+df['Velocidad base (Km/h)'] = df_vel['Velocidad base (Km/h)']
+df['Costo por peaje ($)']   = df_pea['Costo por peaje ($)']
+df['Semaforos']             = df_sem['Semaforos']
+df['Restriccion']           = df_res['Restriccion']
+```
+Parsear restricciones:
+
+Esta función permite transformar la información de la columna **Restriccion** de cada vía en una estructura más fácil de procesar durante el análisis de la red vial. Recibe como entrada el texto asociado a la restricción de una vía y lo convierte en una lista de tuplas con el formato **(tipo de restricción, hora inicial, hora final)**.
+
+Si la vía tiene la restricción **Libre**, se asigna una disponibilidad completa durante las 24 horas del día. En el caso de que la restricción corresponda a **Obras**, se genera una tupla cuya hora de inicio y hora de fin es la misma indicando que la vía permanece cerrada de manera permanente. Para las restricciones de **Pico y placa**, se extraen los rangos horarios definidos en el texto y se genera una tupla individual para cada intervalo de tiempo durante el cual aplica la restricción.
+
+```python
+def _parsear_restriccion(texto):
+    t = str(texto).strip()
+    if t == 'Libre':
+        return [('libre', 0, 24)]
+    if 'Obras' in t:
+        return [('obras', 0, 0)]
+    franjas = re.findall(r'(\d+)-(\d+)', t)
+    return [('pico_placa', int(a), int(b)) for a, b in franjas]
+```
+Datos base y constantes:
+
+Este bloque permite transformar el **DataFrame** consolidado en una lista de tuplas denominada **vias**, donde cada elemento representa la información completa de una vía de la red vial. Cada tupla contiene los nodos de origen y destino, la distancia, la velocidad base, el costo del peaje, la cantidad de semáforos, el tipo de restricción, la franja horaria asociada y el nombre de la vía.
+
+Para construir esta estructura, se recorren las filas del DataFrame y se aplica la función `_parsear_restriccion()`, con el objetivo de descomponer las restricciones de cada vía en las franjas horarias correspondientes y almacenarlos de manera organizada.
+
+Posteriormente, se establecen las condiciones asociadas a los nodos de la red. El diccionario **nodos_evento** contiene los nodos que presentan bloqueos temporales debido a eventos, junto con sus respectivas franjas horarias de afectación. Por otro lado, **nodos_horario** define los nodos que únicamente permiten el paso durante determinados intervalos de tiempo.
+
+Finalmente, se declaran las constantes utilizadas en el modelo. Estas incluyen el costo asociado al tiempo de recorrido (**Costo_Min**), el tiempo que se demora cada semáforo (**Demora_Sem**) y la lista **factores_congestion**, que contiene los factores de ajuste de velocidad según la franja horaria, permitiendo representar los cambios en las condiciones de tráfico.
+
+```python
+vias = []
+for _, row in df.iterrows():
+    o      = int(row['Nodo de origen'])
+    d      = int(row['Nodo de destino'])
+    dist   = float(row['Distancia (Km)'])
+    vel    = float(row['Velocidad base (Km/h)'])
+    pea    = float(row['Costo por peaje ($)'])
+    sem    = int(row['Semaforos'])
+    nombre = str(row['Via'])
+    for tipo, h_ini, h_fin in _parsear_restriccion(row['Restriccion']):
+        vias.append((o, d, dist, vel, pea, sem, tipo, h_ini, h_fin, nombre))
+
+# ── Condiciones sobre nodos ──────────────────────────────────────
+nodos_evento = {
+    7: (8,  12),   
+    4: (10, 14),  
+}
+
+nodos_horario = {
+    9: (6,  16),
+    8: (7,  20),
+}
+
+# ── Constantes ───────────────────────────────────────────────────
+Costo_Min = 800   
+Demora_Sem = 1.5    
+
+factores_congestion = [
+    (6,  7,  0.90),
+    (7,  9,  0.50),
+    (9,  16, 1.00),
+    (16, 19, 0.50),
+    (19, 24, 0.85),
+]
+```
+Factor de congestión: 
+
+Esta función permite determinar el factor de congestión asociado a una hora específica del día. Recibe como parámetros la hora y la lista de franjas horarias con sus respectivos factores de ajuste, y recorre cada intervalo para identificar en cuál de ellos se encuentra la hora ingresada.
+
+En caso de que la hora no se encuentre dentro de ninguna franja establecida, retorna un valor de **1.0**, indicando que no se aplica ningún ajuste sobre la velocidad.
+
+```python
+def get_factor(hora, factores):
+    """
+    Retorna el factor de velocidad para la hora dada.
+
+    Parámetros
+    ----------
+    hora    : int   — hora del día (0-23)
+    factores: list  — [(h_ini, h_fin, factor), ...]
+
+    Retorna
+    -------
+    float — factor de congestión
+    """
+    for h_ini, h_fin, factor in factores:
+        if h_ini <= hora < h_fin:
+            return factor
+    return 1.0   
+```
+Cálcular costo de una vía:
+
+Esta función permite calcular el costo total asociado a recorrer una vía en una hora específica del día. Inicialmente, obtiene el factor de congestión mediante la función `get_factor()` y lo utiliza para ajustar la velocidad base de la vía, obteniendo así la velocidad real de circulación.
+
+Posteriormente, con la velocidad ajustada se calcula el costo asociado al tiempo de recorrido según la distancia de la vía. A este valor se le suma el costo fijo del peaje y el costo generado por la demora asociada al número de semáforos presentes en el tramo. Finalmente, la función retorna el costo total de transitar la vía.
+
+```python
+def calcular_costo(dist, vel_base, peaje, semaforos, hora):
+    """
+    Retorna el costo total de transitar la vía a la hora dada.
+
+    Parámetros
+    ----------
+    dist      : float — distancia en km
+    vel_base  : float — velocidad base en km/h
+    peaje     : float — costo fijo del peaje en pesos
+    semaforos : int   — número de semáforos en el tramo
+    hora      : int   — hora del día (0-23)
+
+    Retorna
+    -------
+    float — costo total en pesos
+    """
+    factor       = get_factor(hora, factores_congestion)
+    velocidad    = vel_base * factor
+    costo_tiempo = (dist / velocidad) * 60 * Costo_Min
+    costo_sem    = semaforos * Demora_Sem * Costo_Min
+    return costo_tiempo + peaje + costo_sem
+```
+Filtrar red vial:
+
+Esta función permite determinar cuáles vías de la red se encuentran disponibles para circular en una hora específica, considerando todas las restricciones definidas en el problema. El proceso se realiza en dos etapas: identificación de vías bloqueadas y construcción de la red disponible.
+
+En la primera etapa, se identifican los nodos que presentan restricciones temporales. Para ello, se recorre el diccionario `nodos_evento` y se verifica si la hora actual se encuentra dentro de la franja de bloqueo de cada nodo. De manera similar, se recorre el diccionario `nodos_horario` para identificar los nodos cuya hora actual no se encuentra dentro del horario permitido de circulación.
+
+Posteriormente, se recorren todas las vías y se identifican aquellas que deben ser bloqueadas debido a alguna restricción. Una vía se considera no disponible si cumple al menos una de las siguientes condiciones: que sea una vía cerrada, que tenga pico y placa activo, que alguno de sus nodos esté bloqueado por un evento o se encuentre fuera de su horario permitido de circulación. Cada vía eliminada se almacena en el diccionario **eliminadas**, clasificándola según la causa que generó su bloqueo.
+
+En la segunda etapa, se construye la lista de vías disponibles conservando únicamente aquellas que no fueron marcadas como bloqueadas. Para evitar duplicados que puedan aparecer cuando una vía tiene múltiples franjas de pico y placa, se lleva un registro de las aristas ya agregadas y se omite cualquier repetición.
+
+Finalmente, la función retorna tres elementos: la lista de vías habilitadas para circular en la hora evaluada, el diccionario de vías eliminadas clasificadas por motivo de bloqueo y el conjunto de nodos que no se encuentran disponibles.
+
+```python
+def filtrar_red(vias, nodos_evento, nodos_horario, hora):
+    """
+    Parámetros
+    ----------
+    vias          : list — lista de tuplas con la información de cada vía
+    nodos_evento  : dict — nodos bloqueados por evento con su franja de bloqueo
+    nodos_horario : dict — nodos con horario de paso restringido
+    hora          : int  — hora del día (0-23)
+
+    Retorna
+    -------
+    disponibles : list — vías disponibles a la hora dada
+    eliminadas  : dict — vías eliminadas clasificadas por motivo de bloqueo
+    bloqueados  : set  — conjunto de nodos inaccesibles a la hora dada
+    """
+    eliminadas = {"obras": set(), "pico_placa": set(), "evento": set(), "horario": set()}
+
+    # Nodos bloqueados por evento a esta hora
+    nodos_bloq = {
+        nodo for nodo, (hi, hf) in nodos_evento.items()
+        if hi <= hora < hf
+    }
+
+    # Nodos fuera de su horario de paso permitido
+    nodos_fuera = {
+        nodo for nodo, (hi, hf) in nodos_horario.items()
+        if not (hi <= hora < hf)
+    }
+
+    # ── PASO 1: marcar todas las aristas que deben bloquearse ─────────────────
+    aristas_bloqueadas = set()
+
+    for via in vias:
+        o, d, dist, vel, peaje, sem, tipo, h_ini, h_fin, nombre = via
+
+        if tipo == "obras":
+            aristas_bloqueadas.add((o, d))
+            eliminadas["obras"].add(nombre)
+
+        elif tipo == "pico_placa" and h_ini <= hora < h_fin:
+            aristas_bloqueadas.add((o, d))
+            eliminadas["pico_placa"].add(nombre)
+
+        if o in nodos_bloq or d in nodos_bloq:
+            aristas_bloqueadas.add((o, d))
+            eliminadas["evento"].add(nombre)
+
+        if o in nodos_fuera or d in nodos_fuera:
+            aristas_bloqueadas.add((o, d))
+            eliminadas["horario"].add(nombre)
+
+    # ── PASO 2: construir lista de vías disponibles ────────────────────────────
+    disponibles = []
+    vistas = set()
+
+    for via in vias:
+        o, d, dist, vel, peaje, sem, tipo, h_ini, h_fin, nombre = via
+
+        clave = (o, d)
+
+        if clave in aristas_bloqueadas:
+            continue
+
+        if clave in vistas:
+            continue
+
+        disponibles.append(via)
+        vistas.add(clave)
+
+    eliminadas = {k: sorted(v) for k, v in eliminadas.items()}
+
+    return disponibles, eliminadas, nodos_bloq | nodos_fuera
+```
+Construcción del grafo:
+
+Esta función construye un grafo dirigido a partir de las vías disponibles en un momento específico del tiempo. Cada nodo del grafo representa una intersección y cada arista representa una vía entre dos puntos de la red, incluyendo su costo asociado.
+
+Para cada vía disponible, se calcula el costo de tránsito utilizando la función `calcular_costo()`, el cual depende de la distancia, la velocidad base, la presencia de peajes, el número de semáforos y la hora del día. Este valor se asigna como atributo **weight** de la arista, junto con las demás características de la vía.
+
+```python
+def construir_grafo(vias_disponibles, hora):
+    """
+    Construye un DiGraph con las vías disponibles y sus costos.
+
+    Parámetros
+    ----------
+    vias_disponibles : list — vías filtradas
+    hora             : int  — hora del día (0-23)
+
+    Retorna
+    -------
+    nx.DiGraph con atributo 'weight' en cada arista
+    """
+    G = nx.DiGraph()
+    for via in vias_disponibles:
+        o, d, dist, vel, peaje, sem, *_ = via
+        peso = calcular_costo(dist, vel, peaje, sem, hora)
+
+        if G.has_edge(o, d):
+            if peso < G[o][d]['weight']:
+                G[o][d]['weight'] = peso
+        else:
+            G.add_edge(o, d, weight=peso,
+                       dist=dist, vel=vel, peaje=peaje, sem=sem)
+
+    return G
+```
+Análisis por horario:
+
+Este bloque ejecuta el análisis completo de la red vial para los horarios definidos (6:00, 8:00, 11:00 y 18:00). Para cada hora, primero se filtra la red, identificando las vías que deben ser eliminadas según las restricciones activas en ese momento.
+
+A continuación, se construye el grafo con las vías disponibles utilizando la función `construir_grafo`, y posteriormente se aplica el algoritmo de **Dijkstra** para encontrar la ruta de menor costo entre el nodo 1 y el nodo 12.
+
+Si existe una ruta posible, se imprime la secuencia de nodos que la conforman junto con el costo total del recorrido en pesos. En caso contrario, se indica que no existe un camino disponible entre los nodos para esa hora específica.
+
+```python
+resultados = {}  
+
+for hora in [6, 8, 11, 18]:
+    print(f"\n{'='*58}")
+    print(f"  HORA: {hora}:00")
+    print(f"{'='*58}")
+
+    disponibles, eliminadas, bloqueados = filtrar_red(
+        vias, nodos_evento, nodos_horario, hora
+    )
+
+    print('Vias eliminadas:')
+    hay_eliminadas = False
+    for motivo, nombres in eliminadas.items():
+        if nombres:
+            hay_eliminadas = True
+            print(f'  {motivo:12s}: {", ".join(nombres)}')
+    if not hay_eliminadas:
+        print('  (ninguna)')
+
+    vias_por_nodo = sorted(set(eliminadas.get('evento', []) + eliminadas.get('horario', [])))
+
+    print(f'Vias disponibles         : {len(disponibles)}')
+
+    G = construir_grafo(disponibles, hora)
+
+    try:
+        ruta  = nx.dijkstra_path(G, 1, 12, weight='weight')
+        costo = nx.dijkstra_path_length(G, 1, 12, weight='weight')
+        print(f'Ruta optima  : {" -> ".join(map(str, ruta))}')
+        print(f'Costo total  : ${costo:,.0f} pesos')
+    except nx.NetworkXNoPath:
+        print('No existe camino de 1 a 12 a esta hora.')
+        resultados[hora] = None
+```
 </details>
 
 <details>
