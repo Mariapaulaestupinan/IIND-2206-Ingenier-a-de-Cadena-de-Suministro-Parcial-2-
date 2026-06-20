@@ -691,7 +691,7 @@ Una empresa de mensajería urbana en Bogotá necesita calcular la ruta de menor 
     
 **Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20Red%20vial%20en%20Bogot%C3%A1.pdf" download>Enunciado Red Vial en Bogotá</a>
 
-**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/datos_red_vial_bogota.xlsx" download>Base de Datos Red vial en Bogotá</a>
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/base_datos_red_vial_bogota.xlsx" download>Base de Datos Red vial en Bogotá</a>
 
 **Solución:** 
 
