@@ -1051,7 +1051,8 @@ Hora 18:00
 </details>
 
 <details>
-<summary>🔴 Nivel Difícil — Próximamente</summary>
+<summary> Red de distribución energética </summary>
+
 
 > En construcción
 
