@@ -29,7 +29,7 @@ A lo largo de los ejercicios, nos enfrentaremos con problemas en los que no solo
 - [NetworkX](#networkx)
   - [Funciones principales](#funciones-principales)
   - [Ejercicios](#ejercicios)
-
+- [Dijkstra](#dijkstra)
 ---
 
 ### NetworkX
@@ -684,6 +684,13 @@ Ruta de Menor tiempo
 <details>
 <summary> Red Vial en Bogotá </summary>
 Una empresa de mensajería urbana en Bogotá necesita calcular la ruta de menor costo para un mensajero en moto que parte desde la intersección 1 y debe llegar a la intersección 12. El costo de cada tramo no depende únicamente de la distancia recorrida, sino también de la velocidad del tráfico según la hora del día, la presencia de peajes en la vía y la cantidad de semáforos.
+
+
+**Nota:** Este ejercicio idealmente debería resolverse mediante una implementación propia del algoritmo de Dijkstra, debido a que el costo real de una ruta depende del estado dinámico de la red durante el recorrido. En particular, para calcular correctamente el costo de una alternativa sería necesario conocer la hora estimada de llegada a cada nodo, ya que el factor de congestión de una vía puede cambiar dependiendo del momento en que sea utilizada. Adicionalmente, la disponibilidad de las vías debe evaluarse dinámicamente, considerando posibles bloqueos o restricciones que puedan activarse durante el recorrido.
+
+Para utilizar la librería `NetworkX` en este ejercicio se realizó una simplificación, asumiendo que el factor de congestión permanece constante durante todo el trayecto y que las restricciones de las vías son conocidas previamente antes de iniciar el recorrido. Sin embargo, esta aproximación puede generar diferencias frente a una solución completamente dinámica.
+
+En la sección de **[Dijkstra](#dijkstra)**, se implementará nuevamente este problema utilizando un grafo dinámico construido desde cero, con el objetivo de comparar ambas aproximaciones y analizar la diferencia en la calidad de la solución obtenida en términos de costo.
     
 **Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20Red%20vial%20en%20Bogot%C3%A1.pdf" download>Enunciado Red Vial en Bogotá</a>
 
@@ -1326,6 +1333,21 @@ Ruta de menor tiempo (Vancouver → Chicago)
 | Distancia total | 4,278.40 Km |
 | Tiempo total | 66.42 h |
 </details>
+
+### Dijkstra
+
+---
+
+Las librerías como NetworkX proporcionan implementaciones eficientes del algoritmo de Dijkstra, las cuales son especialmente útiles cuando se trabaja con grafos estáticos y completamente definidos. No obstante, existen situaciones en las que estas herramientas resultan insuficientes, particularmente cuando el grafo varía dinámicamente durante la ejecución del algoritmo.
+
+Este tipo de escenarios ocurre, por ejemplo, cuando la disponibilidad de una vía depende de horarios específicos, lo que implica que la estructura del grafo cambia según el momento en que el nodo es alcanzado. De igual forma, pueden existir restricciones acumulativas, como un número máximo de peajes permitidos en la ruta, donde una arista puede ser válida en términos de costo, pero no ser viable si se ha excedido dicho límite.  Una situación similar se presenta cuando se establece un tiempo máximo de tránsito permitido, de modo que un arco solo puede tomarse si el tiempo acumulado hasta ese punto no supera un límite definido, descartando rutas que aunque sean de menor costo no garanticen la entrega dentro de la ventana de tiempo exigida. 
+
+En todos estos contextos, la exploración del grafo debe adaptarse dinámicamente en cada iteración del algoritmo, lo que requiere una implementación personalizada en lugar de depender de soluciones predefinidas.
+
+A continuación, se presenta la implementación paso a paso del algoritmo de Dijkstra para ejercicios con grafos dinamicos.
+
+
+
 
 
 
