@@ -27,8 +27,8 @@ A lo largo de los ejercicios, nos enfrentaremos con problemas en los que no solo
 ### Contenido
 
 - [NetworkX](#networkx)
-   - [Funciones principales](#funciones-principales)
-   - [Ejercicios](#ejercicios)
+  - [Funciones principales](#funciones-principales)
+  - [Ejercicios](#ejercicios)
 
 ---
 
