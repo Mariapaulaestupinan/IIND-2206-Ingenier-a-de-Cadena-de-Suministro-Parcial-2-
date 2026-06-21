@@ -683,8 +683,8 @@ Ruta de Menor tiempo
 </details>
 <details>
 <summary> Red Vial en Bogotá </summary>
-Una empresa de mensajería urbana en Bogotá necesita calcular la ruta de menor costo para un mensajero en moto que parte desde la intersección 1 y debe llegar a la intersección 12. El costo de cada tramo no depende únicamente de la distancia recorrida, sino también de la velocidad del tráfico según la hora del día, la presencia de peajes en la vía y la cantidad de semáforos.
-<br>
+Una empresa de mensajería urbana en Bogotá necesita calcular la ruta de menor costo para un mensajero en moto que parte desde la intersección 1 y debe llegar a la intersección 12. El costo de cada tramo no depende únicamente de la distancia recorrida, sino también de la velocidad del tráfico según la hora del día, la presencia de peajes en la vía y la cantidad de semáforos. 
+<br><br>
 
 **Nota:** Este ejercicio idealmente debería resolverse mediante una implementación propia del algoritmo de Dijkstra, debido a que el costo real de una ruta depende del estado dinámico de la red durante el recorrido. En particular, para calcular correctamente el costo de una alternativa sería necesario conocer la hora estimada de llegada a cada nodo, ya que el factor de congestión de una vía puede cambiar dependiendo del momento en que sea utilizada. Adicionalmente, la disponibilidad de las vías debe evaluarse dinámicamente, considerando posibles bloqueos o restricciones que puedan activarse durante el recorrido.
 
@@ -1340,15 +1340,250 @@ Ruta de menor tiempo (Vancouver → Chicago)
 
 Las librerías como NetworkX proporcionan implementaciones eficientes del algoritmo de Dijkstra, las cuales son especialmente útiles cuando se trabaja con grafos estáticos y completamente definidos. No obstante, existen situaciones en las que estas herramientas resultan insuficientes, particularmente cuando el grafo varía dinámicamente durante la ejecución del algoritmo.
 
-Este tipo de escenarios ocurre, por ejemplo, cuando la disponibilidad de una vía depende de horarios específicos, lo que implica que la estructura del grafo cambia según el momento en que el nodo es alcanzado. De igual forma, pueden existir restricciones acumulativas, como un número máximo de peajes permitidos en la ruta, donde una arista puede ser válida en términos de costo, pero no ser viable si se ha excedido dicho límite.  Una situación similar se presenta cuando se establece un tiempo máximo de tránsito permitido, de modo que un arco solo puede tomarse si el tiempo acumulado hasta ese punto no supera un límite definido, descartando rutas que aunque sean de menor costo no garanticen la entrega dentro de la ventana de tiempo exigida. 
+Este tipo de escenarios ocurre, por ejemplo, cuando la disponibilidad de una vía depende de horarios específicos, lo que implica que la estructura del grafo cambia según el momento en que el nodo es alcanzado. De igual forma, puede suceder que el costo de un arco no sea fijo sino que varíe según el modo de transporte utilizado en el tramo anterior, como ocurre cuando se aplica un recargo adicional al realizar un transbordo entre modo ferroviario y terrestre, haciendo que el peso del arco dependa de cómo se llegó al nodo y no únicamente de sus atributos propios. Una situación similar se presenta cuando cada nodo intermedio de la red tiene un límite máximo de riesgo permitido, de modo que la viabilidad de continuar por un arco solo puede verificarse conociendo el camino exacto tomado hasta ese momento. En todos estos casos la lógica de exploración debe adaptarse en cada paso del algoritmo, lo que hace necesario contar con una implementación propia.
 
 En todos estos contextos, la exploración del grafo debe adaptarse dinámicamente en cada iteración del algoritmo, lo que requiere una implementación personalizada en lugar de depender de soluciones predefinidas.
 
 A continuación, se presenta la implementación paso a paso del algoritmo de Dijkstra para ejercicios con grafos dinamicos.
 
+#### Pseudocódigo del algoritmo de Dijkstra
 
+El algoritmo inicia con la configuración de las estructuras necesarias para realizar la búsqueda de la ruta más corta. A cada nodo del grafo se le asigna una distancia inicial infinita, representando que aún no existe un camino conocido hacia ellos. La única excepción es el nodo de origen, cuya distancia se establece en cero debido a que es el punto de partida.
 
+Adicionalmente, se crea un registro de predecesores para cada nodo, el cual permitirá reconstruir la ruta óptima una vez finalice el algoritmo. También se define un conjunto de nodos visitados, inicialmente vacío, encargado de almacenar aquellos nodos cuyo costo mínimo ya fue determinado.
 
+Finalmente, se inicializa una cola de prioridad, que constituye la estructura principal del algoritmo, ya que permite seleccionar en cada iteración el nodo con menor distancia acumulada y explorar sus vecinos de manera eficiente. Esta cola comienza únicamente con el nodo origen y una distancia asociada de cero.
 
+```text
+1: for each node n ∈ V do
+2:     distance[n] ← ∞
+3:     predecessor[n] ← None
+4: end for
 
+5: distance[origin] ← 0
+6: visited ← ∅
+7: priority_queue ← {(0, origin)}
+```
+En cada iteración, se extrae de la cola de prioridad el nodo con menor distancia acumulada. Si dicho nodo ya fue procesado anteriormente, se descarta y se continúa con la siguiente iteración. En caso contrario, se marca como visitado y se procede a explorar sus vecinos. Este procedimiento garantiza que cada nodo sea evaluado una única vez y siguiendo el orden de menor costo acumulado.
 
+```text
+8: while priority_queue is not empty do
+9:     (current_dist, u) ← extract-min(priority_queue)
+
+10:    if u ∈ visited then
+11:        continue
+12:    end if
+
+13:    visited ← visited ∪ {u}
+```
+
+Para cada vecino del nodo actual se calcula la distancia tentativa como la suma de la distancia acumulada hasta el nodo actual y el peso del arco que conecta ambos nodos. Si esta nueva distancia es menor que la distancia registrada para ese vecino, se actualiza el valor mínimo encontrado, se registra el nodo actual como su predecesor y se incorpora nuevamente a la cola de prioridad con la nueva distancia. De esta forma el algoritmo siempre explora primero los caminos más prometedores.
+
+```text
+14:    for each neighbor v of u do
+15:        tentative_dist ← distance[u] + weight(u, v)
+
+16:        if tentative_dist < distance[v] then
+17:            distance[v] ← tentative_dist
+18:            predecessor[v] ← u
+19:            insert (tentative_dist, v) into priority_queue
+20:        end if
+21:    end for
+22: end while
+```
+
+Una vez finaliza la ejecución del algoritmo, la ruta óptima se reconstruye utilizando el registro de predecesores almacenado durante el proceso de búsqueda. Para ello, se inicia desde el nodo destino y se retrocede siguiendo la cadena de predecesores hasta llegar al nodo origen. Debido a que este recorrido se realiza en sentido inverso, la secuencia obtenida se organiza nuevamente para mostrar la ruta en el orden correcto desde el origen hasta el destino.
+
+```text
+23: path ← empty list
+24: current_node ← destination
+
+25: while current_node is not None do
+26:     insert current_node at beginning of path
+27:     current_node ← predecessor[current_node]
+28: end while
+
+29: return path, distance[destination]
+```
+#### Ejercicios 
+En esta sección se desarrollan ejercicios de ruta más corta que requieren implementar el algoritmo de Dijkstra de forma manual, adaptando su lógica de exploración a restricciones que no pueden resolverse con librerías estándar como NetworkX. Cada ejercicio introduce una modificación diferente al estado del algoritmo, lo que permite comprender cómo extender Dijkstra más allá de su formulación clásica para abordar problemas reales con condiciones dinámicas sobre los arcos y los nodos.
+
+<details>
+<summary> Red de Distribución RiskShield </summary>
+RiskShield Logistics es una empresa especializada en el transporte de sustancias químicas peligrosas que debe entregar un cargamento de peróxido de hidrógeno industrial desde Seattle hasta Houston. La empresa opera una red de rutas terrestres y ferroviarias a lo largo de Estados Unidos, y debe encontrar la ruta de menor costo garantizando que la exposición al riesgo operativo a lo largo del recorrido no supere los límites establecidos para cada ciudad intermedia.
+    
+**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Red%20de%20Distribuci%C3%B3n%20RiskShield.pdf" download>Enunciado Red de Distribución RiskShield</a>
+
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/red_RiskShield.xlsx" download>red_RiskShield</a>
+
+**Solución:** 
+Importación de librerías requeridas:
+
+```python
+import pandas as pd
+import heapq
+```
+Parámetros del modelo:
+
+Define los parametros necesarios para el ejercicio. Se establece la ruta del archivo Excel, las ciudades de origen y destino del recorrido. Luego se define el diccionario `Um` con el costo por kilómetro según el modo de transporte, y la constante `Co` con el costo por hora del operador en dólares, ambos necesarios para aplicar la fórmula de costo de cada arco.
+
+```python
+Excel_Path = "red_RiskShield.xlsx"
+Origen     = "Seattle"
+Destino    = "Houston"
+
+Um = {"Terrestre": 4.20, "Ferroviario": 2.80, "Fluvial": 1.70}
+Co = 38.0
+```
+Carga de datos:
+
+Se leen las dos hojas del archivo Excel: `Red_Rutas` con la información de cada arco de la red y `Nodos` con los límites de riesgo de cada ciudad. A partir de la hoja de nodos se construye el diccionario `riesgo_max`, que asocia cada ciudad con su límite máximo de riesgo acumulado permitido.
+
+```python
+df_rutas = pd.read_excel(Excel_Path, sheet_name="Red_Rutas")
+df_nodos = pd.read_excel(Excel_Path, sheet_name="Nodos")
+
+riesgo_max = dict(zip(df_nodos["Nodo"], df_nodos["Riesgo Maximo"]))
+```
+Construcción del grafo:
+
+Construye el grafo como un diccionario de adyacencia donde cada ciudad de origen tiene asociada una lista de tuplas con la información de sus arcos salientes. Por cada fila del DataFrame se extraen los atributos del arco, se calcula el tiempo de recorrido dividiendo la distancia entre la velocidad promedio, y se aplica la fórmula de costo. Cada arco queda almacenado como una tupla con el destino, la distancia, el tiempo de recorrido, el costo total y el índice de riesgo. Finalmente, se construye el conjunto `nodos` con todas las ciudades presentes en la red, tanto como origen como destino.
+
+```python
+grafo = {}
+
+for _, row in df_rutas.iterrows():
+    o      = row["Origen"]
+    d      = row["Destino"]
+    dist   = float(row["Distancia (Km)"])
+    vel    = float(row["Velocidad (Km/h)"])
+    modo   = row["Modo Transporte"]
+    peaje  = float(row["Peaje (USD)"])
+    riesgo = float(row["Indice Riesgo"])
+
+    tij = dist / vel
+    cij = Um[modo] * dist + Co * tij + peaje
+
+    if o not in grafo:
+        grafo[o] = []
+
+    grafo[o].append((d, dist, tij, cij, riesgo))
+
+nodos = set(df_rutas["Origen"]) | set(df_rutas["Destino"])
+```
+Inicialización de estructuras de datos:
+
+Inicializa las estructuras de datos necesarias para el algoritmo. El diccionario `costo` asigna un valor infinito a cada nodo, representando que al inicio del algoritmo no se ha encontrado ningún camino hacia ellos y cualquier ruta que se descubra durante la exploración será necesariamente menor. El diccionario `predecesor` se inicializa en `None` para todos los nodos, y será el que permita reconstruir la ruta óptima al finalizar el algoritmo. Adicionalmente, dado que este ejercicio extiende el algoritmo clásico de Dijkstra, se inicializan también los diccionarios `riesgo_ac`, `distancia` y `tiempo`, que almacenarán el riesgo acumulado, la distancia recorrida y el tiempo de tránsito correspondientes al mejor camino encontrado hacia cada nodo.
+
+```python
+costo       = {n: float("inf") for n in nodos}
+predecesor  = {n: None for n in nodos}
+riesgo_ac   = {n: float("inf") for n in nodos}
+distancia   = {n: 0.0 for n in nodos}
+tiempo      = {n: 0.0 for n in nodos}
+```
+Inicialización del origen:
+
+Inicializa el punto de partida del algoritmo. El costo y el riesgo acumulado del nodo origen se establecen en cero, ya que no se ha recorrido ningún arco todavía. Se inicializa el conjunto `visitados` vacío y se inserta el nodo origen en la cola de prioridad como único elemento inicial, con costo, riesgo, distancia y tiempo en cero, marcando así el punto de partida desde el cual comenzará la exploración.
+
+```python
+costo[Origen]     = 0.0
+riesgo_ac[Origen] = 0.0
+
+visitados = set()
+
+cola_prioridad = [
+    (0.0, Origen, 0.0, 0.0, 0.0)  # (costo, nodo, riesgo_ac, dist_ac, tiempo_ac)
+]
+```
+Ciclo principal del algoritmo:
+
+El ciclo se ejecuta mientras la cola de prioridad no esté vacía. En cada iteración se extrae el nodo con menor costo acumulado usando `heapq.heappop`, obteniendo junto con él el riesgo acumulado, la distancia recorrida y el tiempo transcurrido hasta llegar a ese nodo. Si el nodo ya fue visitado se descarta y se continúa con la siguiente iteración; de lo contrario se marca como visitado y se procede a explorar sus vecinos.
+
+Para cada vecino del nodo actual, se calcula el nuevo riesgo acumulado sumando el riesgo del arco actual al riesgo acumulado hasta el nodo actual. Antes de continuar se verifica la restricción operativa: si el nuevo riesgo supera el límite permitido para el nodo vecino, el arco se descarta. En caso contrario se calcula el costo tentativo sumando el costo acumulado hasta el nodo actual más el costo del arco. Si este costo tentativo es menor que el mejor costo registrado para ese vecino, se actualizan el costo, el predecesor, el riesgo acumulado, la distancia y el tiempo, y el vecino se inserta en la cola de prioridad con los nuevos valores para ser explorado en iteraciones posteriores.
+
+```python
+while cola_prioridad:
+
+    # Extraer nodo de menor costo
+    costo_actual, u, riesgo_actual, dist_actual, tiempo_actual = heapq.heappop(cola_prioridad)
+
+    if u in visitados:
+        continue
+
+    # Marcar nodo como visitado
+    visitados.add(u)
+
+    # Explorar vecinos
+    for v, dist_arco, tij, cij, riesgo_arco in grafo.get(u, []):
+
+        nuevo_riesgo = riesgo_actual + riesgo_arco
+
+        # Verificar límite de riesgo del nodo destino
+        limite = riesgo_max.get(v, 1.0)
+        if nuevo_riesgo > limite:
+            continue
+
+        # Calcular costo tentativo
+        costo_tentativo = costo_actual + cij
+
+        # Actualizar información del vecino si se encontró un camino de menor costo
+        if costo_tentativo < costo[v]:
+            costo[v]      = costo_tentativo
+            predecesor[v] = u
+            riesgo_ac[v]  = nuevo_riesgo
+            distancia[v]  = dist_actual + dist_arco
+            tiempo[v]     = tiempo_actual + tij
+
+            # Insertar el vecino en la cola de prioridad
+            heapq.heappush(
+                cola_prioridad,
+                (costo_tentativo, v, nuevo_riesgo,
+                 dist_actual + dist_arco, tiempo_actual + tij)
+            )
+```
+Reconstrucción de la ruta:
+
+Una vez finalizado el ciclo principal, se reconstruye la ruta óptima utilizando el diccionario `predecesor`. Partiendo desde el nodo destino, se recorre la cadena de predecesores hacia atrás insertando cada nodo al inicio de la lista `ruta`, de modo que al finalizar el recorrido la secuencia quede ordenada de origen a destino. El ciclo termina cuando `nodo_actual` es `None`, lo que indica que se ha llegado al nodo origen, cuyo predecesor fue inicializado en `None`.
+
+```python
+ruta = []
+nodo_actual = Destino
+
+while nodo_actual is not None:
+
+    ruta.insert(0, nodo_actual)              # Línea 26
+    nodo_actual = predecesor[nodo_actual]    # Línea 27
+```
+Resultados del algoritmo
+
+Imprime los resultados del algoritmo. Si el costo del nodo destino sigue siendo infinito, significa que no se encontró ninguna ruta válida que respete los límites de riesgo acumulado en todos los nodos intermedios. En caso contrario, se imprime la secuencia ordenada de ciudades que conforman la ruta óptima, el número de arcos recorridos, el costo total en dólares, la distancia total en kilómetros, el tiempo estimado en horas y el riesgo acumulado final de la ruta.
+
+```python
+print("=" * 65)
+print("  RISKSHIELD LOGISTICS — Ruta de menor costo con riesgo")
+print("=" * 65)
+
+if costo[Destino] == float("inf"):
+    print("  No existe ruta válida entre los nodos dados.")
+else:
+    print(f"\n  Ruta              : {' → '.join(ruta)}")
+    print(f"  Arcos             : {len(ruta) - 1}")
+    print(f"  Costo total       : ${costo[Destino]:,.2f} USD")
+    print(f"  Distancia total   : {distancia[Destino]:,.1f} km")
+    print(f"  Tiempo total      : {tiempo[Destino]:.2f} h")
+    print(f"  Riesgo acumulado  : {riesgo_ac[Destino]:.4f}")
+    print("=" * 65)
+```
+**Resultado obtenido:**
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Ruta óptima | Seattle → Portland → Boise → Salt Lake → Denver → Oklahoma City → Dallas → Houston |
+| Número de arcos recorridos | 7 |
+| Costo total | $17,215.59 USD |
+| Distancia total | 3,830.0 km |
+| Tiempo total estimado| 45.12 h |
+| Riesgo acumulado final | 1.3600 |
+
+</details>
