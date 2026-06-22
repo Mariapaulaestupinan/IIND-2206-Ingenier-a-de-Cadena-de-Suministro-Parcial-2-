@@ -2440,7 +2440,7 @@ m.add_client(
 )
 ```
  
-> **Nota:** Al usar coordenadas artificiales `x=0, y=0`, es obligatorio proveer la matriz de distancias al modelo. Si no se hace, PyVRP calculará distancias desde el origen, lo que producirá resultados incorrectos.
+> **Nota:** Al usar coordenadas artificiales `x=0, y=0`, es obligatorio proveer la matriz de distancias al modelo. Si no se hace, se calcularán las distancias desde el origen, lo que producirá resultados incorrectos.
 
 </details>
 
@@ -2468,6 +2468,24 @@ for _, row in df.iterrows():
     )
 
 print(f"Clientes cargados: {len(m.locations)}")
+print("\nPrimeros 5 clientes:")
+for client in list(m.locations)[:5]:
+    print(f"  {client.name} — demanda: {client.delivery} | tw: [{client.tw_early}, {client.tw_late}] | servicio: {client.service_duration} min")
 ```
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/clientes_pyvrp.xlsx" download> Clientes Pyvrp</a>
+
+**Solución:**
+
+Se han cargado un total de **10 clientes** en la instancia del problema.
+
+Primeros 5 clientes: 
+
+| Cliente   | Demanda | Ventana de tiempo (min) | Tiempo de servicio |
+|-----------|---------|--------------------------|---------------------|
+| Cliente_1 | 15      | [0, 240]                 | 10 min              |
+| Cliente_2 | 20      | [60, 300]                | 15 min              |
+| Cliente_3 | 10      | [30, 180]                | 8 min               |
+| Cliente_4 | 25      | [90, 360]                | 12 min              |
+| Cliente_5 | 18      | [120, 420]               | 10 min              |
 </details>
 </details>
