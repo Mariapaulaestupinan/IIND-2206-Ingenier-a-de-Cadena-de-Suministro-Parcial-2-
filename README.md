@@ -28,8 +28,10 @@ A lo largo de los ejercicios, nos enfrentaremos con problemas en los que no solo
 
 - [NetworkX](#networkx)
   - [Funciones principales](#funciones-principales)
-  - [Ejercicios](#ejercicios)
+  - [Ejercicios NetworkX](#ejercicios-networkx)
 - [Dijkstra](#dijkstra)
+  - [Pseudocódigo del algoritmo de Dijkstra](#pseudocodigo-del-algoritmo-de-dijkstra)
+  - [Ejercicios Dijkstra](#ejercicios-dijkstra)
 ---
 
 ### NetworkX
@@ -467,7 +469,7 @@ plt.show()
 </div>
 </details>
 
-### Ejercicios
+#### Ejercicios NetworkX
 
 ---
 
@@ -1348,6 +1350,8 @@ A continuación, se presenta la implementación paso a paso del algoritmo de Dij
 
 #### Pseudocódigo del algoritmo de Dijkstra
 
+---
+
 El algoritmo inicia con la configuración de las estructuras necesarias para realizar la búsqueda de la ruta más corta. A cada nodo del grafo se le asigna una distancia inicial infinita, representando que aún no existe un camino conocido hacia ellos. La única excepción es el nodo de origen, cuya distancia se establece en cero debido a que es el punto de partida.
 
 Adicionalmente, se crea un registro de predecesores para cada nodo, el cual permitirá reconstruir la ruta óptima una vez finalice el algoritmo. También se define un conjunto de nodos visitados, inicialmente vacío, encargado de almacenar aquellos nodos cuyo costo mínimo ya fue determinado.
@@ -1405,7 +1409,11 @@ Una vez finaliza la ejecución del algoritmo, la ruta óptima se reconstruye uti
 
 29: return path, distance[destination]
 ```
-#### Ejercicios 
+#### Ejercicios Dijkstra
+
+---
+
+
 En esta sección se desarrollan ejercicios de ruta más corta que requieren implementar el algoritmo de Dijkstra de forma manual, adaptando su lógica de exploración a restricciones que no pueden resolverse con librerías estándar como NetworkX. Cada ejercicio introduce una modificación diferente al estado del algoritmo, lo que permite comprender cómo extender Dijkstra más allá de su formulación clásica para abordar problemas reales con condiciones dinámicas sobre los arcos y los nodos.
 
 <details>
