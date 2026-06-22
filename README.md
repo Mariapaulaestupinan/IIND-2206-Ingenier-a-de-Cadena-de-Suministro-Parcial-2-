@@ -30,7 +30,7 @@ A lo largo de los ejercicios, nos enfrentaremos con problemas en los que no solo
   - [Funciones principales](#funciones-principales)
   - [Ejercicios NetworkX](#ejercicios-networkx)
 - [Dijkstra](#dijkstra)
-  - [Pseudocódigo del algoritmo de Dijkstra](#pseudocodigo-del-algoritmo-de-dijkstra)
+  - [Pseudocodigo del algoritmo de Dijkstra](#pseudocodigo-del-algoritmo-de-dijkstra)
   - [Ejercicios Dijkstra](#ejercicios-dijkstra)
 ---
 
@@ -1348,7 +1348,7 @@ En todos estos contextos, la exploración del grafo debe adaptarse dinámicament
 
 A continuación, se presenta la implementación paso a paso del algoritmo de Dijkstra para ejercicios con grafos dinamicos.
 
-#### Pseudocódigo del algoritmo de Dijkstra
+#### Pseudocodigo del algoritmo de Dijkstra
 
 ---
 
