@@ -27,7 +27,7 @@ A lo largo de los ejercicios, nos enfrentaremos con problemas en los que no solo
 ### Contenido
 
 - [NetworkX](#networkx)
-  - [Funciones principales](#funciones-principales)
+  - [Funciones principales NetworkX](#funciones-principales-networkx)
   - [Ejercicios NetworkX](#ejercicios-networkx)
 - [Dijkstra](#dijkstra)
   - [Pseudocodigo del algoritmo de Dijkstra](#pseudocodigo-del-algoritmo-de-dijkstra)
@@ -44,7 +44,7 @@ A continuación, se estudiarán las principales funciones de la librería Networ
 
 ---
 
-### Funciones principales
+### Funciones principales NetworkX
 
 #### Importación de la librería
 
@@ -2278,7 +2278,7 @@ El objetivo principal es minimizar una función de costo, que puede estar asocia
 ### Contenido
 
 - [PyVRP](#pyvrp)
-  - [Funciones principales](#funciones-principales)
+  - [Funciones principales PyVRP](#funciones-principales-pyvrp)
   - [Ejercicios NetworkX](#ejercicios-networkx)
 
 ### PyVRP
@@ -2299,7 +2299,7 @@ Entre las principales funcionalidades de `PyVRP` se encuentran:
 
 Estas características permiten modelar problemas reales de distribución y logística, donde las decisiones de ruteo deben considerar múltiples restricciones operativas y criterios de eficiencia.
 
-#### Funciones principales
+#### Funciones principales PyVRP
  
 En esta sección se presentan las funciones y clases principales de PyVRP necesarias para modelar y resolver problemas de ruteo de vehículos. Se cubrirá la instalación de la librería, la importación de los módulos necesarios, la creación del modelo y la definición de todos los atributos.
  
