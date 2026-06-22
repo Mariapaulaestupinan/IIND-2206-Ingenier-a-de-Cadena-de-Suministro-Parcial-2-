@@ -2237,7 +2237,7 @@ for hora in [6, 8, 11, 18]:
 
     # Reconstrucción de la ruta
     ruta = []
-    nodo_actual = DESTINO
+    nodo_actual = Destino
 
     while nodo_actual is not None:
         ruta.insert(0, nodo_actual)
