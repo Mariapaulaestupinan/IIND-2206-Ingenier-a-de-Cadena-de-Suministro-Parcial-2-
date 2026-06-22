@@ -1587,3 +1587,257 @@ else:
 | Riesgo acumulado final | 1.3600 |
 
 </details>
+<details>
+<summary> Red de Distribución FreshChain </summary>
+FreshChain Logistics es una empresa especializada en la distribución de productos farmacéuticos refrigerados que debe transportar un cargamento de medicamentos desde Monterrey hasta Cartagena a través de una red multimodal que combina tramos terrestres, ferroviarios y fluviales. Dado que los productos requieren condiciones controladas de temperatura, cada vez que se realiza un cambio de modo de transporte se incurre en un recargo adicional por concepto de manipulación y re-acondicionamiento de la carga en los puntos de transferencia, haciendo que el costo efectivo de un arco no sea un valor fijo sino que dependa del modo de transporte utilizado en el tramo inmediatamente anterior.
+    
+**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20Red%20de%20Distribuci%C3%B3n%20FreshChain.pdf" download>Enunciado Red de Distribución FreshChain</a>
+
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/red_FreshChain.xlsx" download>red_FreshChain</a>
+
+**Solución:** 
+
+Importación de librerías:
+
+```python
+import pandas as pd
+import heapq
+```
+Parámetros del modelo:
+
+Define los parámetros necesarios para el modelo. Se establece la ruta del archivo Excel, las ciudades de origen y destino del recorrido. Luego se define el diccionario `Um` con el costo por kilómetro según el modo de transporte, la constante `Co` con el costo por hora del operador en dólares, y la constante Recargo_Transbordo que representa el costo adicional de en el que se incurre cuando se realiza un transbordo entre modos de transporte distintos, cubriendo los gastos de manipulación y re-acondicionamiento de la carga en el punto de transferencia.
+
+```python
+Excel_Path         = "red_FreshChain.xlsx"
+Origen             = "Monterrey"
+Destino            = "Cartagena"
+
+Um                 = {"Terrestre": 3.80, "Ferroviario": 2.50, "Fluvial": 1.70}
+Co                 = 38.0
+Recargo_Transbordo = 120.0
+```
+Carga de datos:
+
+Se lee la hoja `Red_Multimodal` del archivo Excel y se almacena en un DataFrame que contiene toda la información de la red de rutas disponibles, incluyendo el origen, destino, distancia, velocidad, modo de transporte y peaje de cada arco.
+
+```python
+df = pd.read_excel(Excel_Path, sheet_name="Red_Multimodal")
+```
+
+Construcción del grafo:
+
+Construye el grafo como un diccionario de adyacencia donde cada ciudad de origen tiene asociada una lista de tuplas con la información de sus arcos salientes. Por cada fila del DataFrame se extraen los atributos del arco, se calcula el tiempo de recorrido dividiendo la distancia entre la velocidad promedio, y se aplica la fórmula de costo base sin incluir aún el recargo por transbordo, ya que este solo puede determinarse durante la exploración del algoritmo al conocer el modo del arco anterior. Cada arco queda almacenado como una tupla con el destino, la distancia, el tiempo, el costo base y el modo de transporte. Finalmente, se construye el conjunto `nodos` con todas las ciudades presentes en la red.
+
+```python
+grafo = {}
+
+for _, row in df.iterrows():
+    o    = row["Origen"]
+    d    = row["Destino"]
+    dist = float(row["Distancia_Km"])
+    vel  = float(row["Velocidad_KmH"])
+    modo = row["Modo_Transporte"]
+    pea  = float(row["Peaje_USD"])
+
+    tij = dist / vel
+    cij = Um[modo] * dist + CO * tij + pea
+
+    if o not in grafo:
+        grafo[o] = []
+
+    grafo[o].append((d, dist, tij, cij, modo))
+
+nodos = set(df["Origen"]) | set(df["Destino"])
+```
+
+Inicialización de las estructuras de datos:
+
+En el algoritmo de Dijkstra cada nodo tiene asociado un único costo porque el peso de los arcos es fijo e independiente del camino recorrido. En este ejercicio esto no es suficiente, ya que el costo de llegar a un nodo puede variar según el modo de transporte del tramo anterior: si hubo un transbordo se aplica un recargo adicional, y si no lo hubo se mantiene el costo base.
+
+Por esta razón, el concepto de estado del algoritmo se extiende más allá del nodo. En el Dijkstra clásico el estado corresponde únicamente a la ciudad en la que se encuentra el algoritmo. En este caso, el estado está definido por la combinación `(nodo, modo_anterior)`, es decir, no basta con conocer la ciudad actual, sino también el modo de transporte utilizado para llegar a ella, ya que esta información determina si el siguiente arco tendrá o no un recargo por transbordo.
+
+Esto implica que una misma ciudad puede representar estados diferentes. Por ejemplo, llegar a una ciudad en tren es un estado distinto a llegar a la misma ciudad en camión, debido a que el costo de continuar la ruta puede cambiar dependiendo del modo de transporte anterior.
+
+Esta extensión del estado implica que no es posible inicializar el diccionario `costo` con valor infinito para todos los estados desde el principio, como ocurre en el algoritmo clásico, porque los estados posibles `(nodo, modo)` no se conocen previamente. Estos estados se generan dinámicamente a medida que el algoritmo explora la red y descubre nuevas combinaciones de nodo y modo de transporte.
+
+El estado del nodo origen se inicializa con costo cero y modo de transporte anterior `None`, ya que al partir no se ha recorrido ningún arco previo y por tanto no existe un modo de transporte anterior. Se inicializa el conjunto `visitados` vacío y se inserta el estado inicial en la `cola_prioridad` con costo, distancia y tiempo en cero.
+
+Finalmente, se inicializa el diccionario auxiliar `registro_ruta`, que no forma parte del pseudocódigo pero es necesario en este ejercicio para almacenar la secuencia de ciudades asociada a cada estado `(nodo, modo)`. Debido a que los estados son compuestos, reconstruir la ruta siguiendo únicamente los predecesores requeriría conocer en cada paso no solo el nodo anterior sino también el modo con el que se llegó a él. El diccionario `registro_ruta` evita esta complejidad almacenando directamente la secuencia completa de ciudades cada vez que se actualiza un estado, permitiendo recuperar la ruta óptima al finalizar el algoritmo.
+
+```python
+# ── Inicialización de costos y predecesores ──────────
+# El estado de cada nodo incluye el modo de transporte con el que se llegó,
+# por lo que costo y predecesor se indexan por (nodo, modo_anterior)
+
+costo = {}
+predecesor = {}
+
+# ── Inicialización del origen ─────────────────────────
+# El origen no tiene modo anterior (None) y su costo es 0
+
+costo[(Origen, None)] = 0.0
+predecesor[(Origen, None)] = None
+
+visitados = set()  
+
+cola_prioridad = [
+    (0.0, Origen, None, 0.0, 0.0)
+]  
+# (costo, nodo, modo_prev, dist_ac, tiempo_ac)
+
+# Registro auxiliar para reconstruir la ruta completa
+registro_ruta = {
+    (Origen, None): [Origen]
+}
+```
+
+Ciclo principal del algoritmo:
+
+El ciclo se ejecuta mientras la cola de prioridad no esté vacía. En cada iteración se extrae el estado de menor costo, obteniendo la ciudad actual, el modo de transporte con el que se llegó, el costo acumulado, la distancia recorrida y el tiempo transcurrido hasta ese punto.
+
+Si el estado `(nodo, modo_anterior)` ya fue visitado, se descarta y se continúa con la siguiente iteración. De lo contrario, el estado se marca como visitado y se procede a explorar sus vecinos.
+
+Para cada vecino del nodo actual, se verifica si el modo de transporte del arco actual es diferente al modo con el que se llegó al nodo actual. Si existe una diferencia entre modos, se aplica el recargo por transbordo; en caso contrario, el recargo es cero. Con esto se calcula el costo tentativo sumando el costo acumulado hasta el nodo actual, el costo base del arco y el recargo correspondiente.
+
+A diferencia del algoritmo clásico, donde se compara contra el costo del nodo vecino, en este caso la comparación se realiza contra el costo del estado `(vecino, modo)`, debido a que un mismo nodo puede tener costos diferentes dependiendo del modo de transporte utilizado para llegar a él.
+
+Si el costo tentativo mejora el mejor costo registrado para ese estado, se actualizan el costo, el predecesor y la secuencia de ciudades almacenada en `registro_ruta`. Finalmente, el nuevo estado se inserta en la cola de prioridad con sus valores actualizados para continuar la exploración en iteraciones posteriores.
+
+```python
+while cola_prioridad:
+
+    # Extraer estado de menor costo
+    costo_actual, u, modo_prev, dist_actual, tiempo_actual = heapq.heappop(cola_prioridad)
+
+    # Si el estado (nodo, modo_anterior) ya fue visitado, descartar
+    estado = (u, modo_prev)
+
+    if estado in visitados:
+        continue
+
+    # Marcar estado como visitado
+    visitados.add(estado)
+
+    # Explorar vecinos
+    for v, dist_arco, tij, cij_base, modo in grafo.get(u, []):
+
+        # Recargo si existe transbordo entre modos diferentes
+        recargo = Recargo_Transbordo if (
+            modo_prev is not None and modo != modo_prev
+        ) else 0.0
+
+        # Calcular costo tentativo incluyendo recargo
+        costo_tentativo = costo_actual + cij_base + recargo
+
+        estado_vecino = (v, modo)
+
+        # Actualizar si se encontró un camino de menor costo
+        if estado_vecino not in costo or costo_tentativo < costo[estado_vecino]:
+
+            costo[estado_vecino] = costo_tentativo       
+            predecesor[estado_vecino] = estado            
+
+            registro_ruta[estado_vecino] = (
+                registro_ruta[estado] + [v]
+            )
+
+            # Insertar estado actualizado en la cola de prioridad
+            heapq.heappush(
+                cola_prioridad,
+                (
+                    costo_tentativo,
+                    v,
+                    modo,
+                    dist_actual + dist_arco,
+                    tiempo_actual + tij
+                )
+            )
+```
+Selección del estado destino óptimo:
+
+Como el destino puede haberse alcanzado a través de distintos modos de transporte, pueden existir múltiples estados `(Cartagena, modo)` dentro del diccionario `costo`, cada uno con un costo acumulado diferente dependiendo de la ruta recorrida y los transbordos realizados.
+
+Este bloque selecciona entre todos los estados asociados al nodo destino aquel que tenga el menor costo acumulado. Dicho estado corresponde a la mejor alternativa encontrada por el algoritmo y representa la ruta óptima considerando los costos base y los recargos por transbordo.
+
+```python
+# Buscar el estado del destino con menor costo entre todos los modos de transporte
+estado_destino = min(
+    (e for e in costo if e[0] == Destino),
+    key=lambda e: costo[e],
+    default=None
+)
+```
+Resultado algoritmo: 
+
+Imprime los resultados obtenidos por el algoritmo. Si el destino no aparece en ninguno de los estados registrados en el diccionario `costo`, significa que el algoritmo no encontró ningún camino posible.
+
+En caso contrario, dado que el nodo de destino pudo haberse alcanzado por distintos modos de transporte, se selecciona el que resultó en menor costo y se recupera la ruta optima desde el diccionadio `registro_ruta`. Posteriormente, se calcula la distancia total y el tiempo total recorriendo los arcos correspondientes a la ruta encontrada.
+
+Además, se identifican los transbordos recorriendo la ruta arco por arco y comparando el modo de transporte de cada tramo con el modo de transporte utilizado en el tramo anterior. Cada vez que se detecta un cambio en el modo de transporte, se registra el transbordo indicando las ciudades involucradas y los modos de transporte entre los cuales ocurrió el cambio.
+
+Finalmente, se imprime la secuencia de ciudades, el número de arcos recorridos, el costo total, la distancia acumulada, el tiempo estimado y la lista de transbordos detectados con su recargo asociado. Si la ruta no presenta cambios de modo de transporte, se muestra un mensaje indicando que no hubo transbordos.
+
+```python
+print("=" * 65)
+print("  FRESHCHAIN LOGISTICS — Ruta de menor costo con transbordo")
+print("=" * 65)
+
+if estado_destino is None:
+    print("  No existe ruta válida entre los nodos dados.")
+
+else:
+    ruta = registro_ruta[estado_destino]
+    costo_total = costo[estado_destino]
+
+    distancia_total = sum(
+        next(
+            dist for vec, dist, tij, cij, modo in grafo.get(ruta[i], [])
+            if vec == ruta[i+1]
+        )
+        for i in range(len(ruta) - 1)
+    )
+
+    tiempo_total = sum(
+        next(
+            tij for vec, dist, tij, cij, modo in grafo.get(ruta[i], [])
+            if vec == ruta[i+1]
+        )
+        for i in range(len(ruta) - 1)
+    )
+
+    # Detectar transbordos
+    modos_ruta = []
+    transbordos = []
+
+    for i in range(len(ruta) - 1):
+        u, v = ruta[i], ruta[i+1]
+
+        for vecino, dist, tij, cij_base, modo in grafo.get(u, []):
+
+            if vecino == v:
+
+                if modos_ruta and modo != modos_ruta[-1]:
+                    transbordos.append(
+                        f"{u} → {v} ({modos_ruta[-1]} → {modo})"
+                    )
+
+                modos_ruta.append(modo)
+                break
+
+    print(f"\n  Ruta     : {' → '.join(ruta)}")
+    print(f"  Arcos    : {len(ruta) - 1}")
+    print(f"  Costo    : ${costo_total:,.2f} USD")
+    print(f"  Distancia: {distancia_total:,.1f} km")
+    print(f"  Tiempo   : {tiempo_total:.2f} h")
+
+    if transbordos:
+        print(f"\n  Transbordos detectados:")
+
+        for t in transbordos:
+            print(f" {t}  (+${Recargo_Transbordo:.0f} USD)")
+
+    else:
+        print("\n  Sin transbordos en la ruta.")
+
+    print("=" * 65)
+```
