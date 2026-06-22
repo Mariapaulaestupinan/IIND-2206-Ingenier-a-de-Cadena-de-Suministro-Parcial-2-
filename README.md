@@ -2173,8 +2173,8 @@ def dijkstra(hora_inicio):
     hora_nodo  = {n: float('inf') for n in nodos}
 
     # Inicialización del origen
-    costo[ORIGEN]     = 0.0
-    hora_nodo[ORIGEN] = hora_inicio
+    costo[Origen]     = 0.0
+    hora_nodo[Origen] = hora_inicio
 
     visitados = set()
     cola_prioridad = [(0.0, Origen, hora_inicio)]  # (costo, nodo, hora_llegada)
