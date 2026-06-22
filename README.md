@@ -1755,7 +1755,7 @@ while cola_prioridad:
 ```
 Selección del estado de destino óptimo:
 
-Como el destino puede haberse alcanzado a través de distintos modos de transporte, pueden existir múltiples estados `(Cartagena, modo)` dentro del diccionario `costo`, cada uno con un costo acumulado diferente dependiendo de la ruta recorrida y los transbordos realizados.
+Como el destino puede haberse alcanzado a través de distintos modos de transporte, pueden existir múltiples estados `(Destino, modo)` dentro del diccionario `costo`, cada uno con un costo acumulado diferente dependiendo de la ruta recorrida y los transbordos realizados.
 
 Este bloque selecciona entre todos los estados asociados al nodo destino aquel que tenga el menor costo acumulado. Dicho estado corresponde a la mejor alternativa encontrada por el algoritmo y representa la ruta óptima considerando los costos base y los recargos por transbordo.
 
