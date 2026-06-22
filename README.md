@@ -2590,3 +2590,197 @@ m.add_depot(
 
 </details>
 </details>
+
+<details>
+<summary> Tipos de vehículos </summary>
+
+Un tipo de vehículo agrupa las características operativas que comparten los vehículos de una misma categoría dentro de la flota, como su capacidad, horario de operación, costos asociados y perfil de enrutamiento. Se agrega al modelo usando el método `add_vehicle_type()`, que acepta los siguientes parámetros:
+ 
+| Parámetro | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `num_available` | int | No | Número de vehículos disponibles de este tipo. Por defecto 1 |
+| `capacity` | int | No | Capacidad máxima en unidades que puede transportar el vehículo. Por defecto sin restricción |
+| `start_depot` | int | No | Índice del depósito desde el que parten los vehículos de este tipo. Por defecto 0 |
+| `end_depot` | int | No | Índice del depósito al que regresan los vehículos de este tipo. Por defecto 0 |
+| `fixed_cost` | int | No | Costo fijo por utilizar un vehículo de este tipo, independiente de la ruta. Por defecto 0 |
+| `tw_early` | int | No | Inicio de operación del vehículo. Por defecto 0 |
+| `tw_late` | int | No | Tiempo de finalización del turno del vehículo. Sin restricción si no se especifica |
+| `shift_duration` | int | No | Duración máxima de la ruta. Puede extenderse con horas extra. Sin restricción si no se especifica |
+| `max_distance` | int | No | Distancia máxima que puede recorrer el vehículo en una ruta. Sin restricción si no se especifica |
+| `unit_distance_cost` | int | No | Costo por unidad de distancia recorrida. Por defecto 1 |
+| `unit_duration_cost` | int | No | Costo por unidad de tiempo de duración de la ruta. Por defecto 0 |
+| `max_overtime` | int | No | Tiempo adicional permitido después de superar la duración máxima establecida. Por defecto 0 |
+| `unit_overtime_cost` | int | No | Costo por unidad de tiempo extra. Por defecto 0 |
+| `profile` | Profile | No | Perfil de enrutamiento del vehículo, que define los nodos a atender y la matriz de distancias. Por defecto 0 |
+| `name` | str | No | Nombre descriptivo del tipo de vehículo. Por defecto cadena vacía |
+ 
+> **Nota:** Los parámetros de tiempo (`tw_early`, `tw_late`, `shift_duration`, `max_overtime`) deben expresarse en **minutos** o **segundos**. El depósito debe haberse agregado al modelo antes de definir los tipos de vehículos.
+
+<details>
+<summary> Ejemplo 1 — Flota homogénea </summary>
+ 
+Una flota homogénea está compuesta por vehículos del mismo tipo con las mismas características operativas. Basta con definir un único tipo de vehículo e indicar cuántas unidades están disponibles. A continuación se define una flota de 3 camiones estándar con una capacidad de 50 unidades, un costo fijo de 500 USD por vehículo, turno entre las 8:00 y las 18:00 con una duración de 8 horas, distancia máxima de 200 km, costo de 2 USD/Km y 1 USD/min. Adicionalmente, los vehículos disponen de hasta 30 minutos extra para completar la ruta y regresar al depósito, con un costo adicional de 3 USD por minuto.
+ 
+```python
+m = Model()
+ 
+m.add_depot(
+    x    = 4.7110,
+    y    = -74.0721,
+    name = "Deposito_Central"
+)
+ 
+# Turno en horas
+tw_early_h = 8    # 8:00
+tw_late_h  = 18   # 18:00
+shift_h    = 8    # 8 horas de turno
+
+# Crear perfil de enrutamiento
+perfil = m.add_profile()
+
+# Conversión a minutos
+tw_early_min = tw_early_h * 60   # 480
+tw_late_min  = tw_late_h  * 60   # 1080
+shift_min    = shift_h    * 60   # 480
+ 
+m.add_vehicle_type(
+    num_available      = 3,
+    capacity           = 50,
+    fixed_cost         = 500,
+    tw_early           = tw_early_min,
+    tw_late            = tw_late_min,
+    shift_duration     = shift_min,
+    max_distance       = 200,
+    unit_distance_cost = 2,
+    unit_duration_cost = 1,
+    max_overtime       = 30,
+    unit_overtime_cost = 3,
+    profile            = perfil,
+    name               = "Camion_Estandar"
+)
+```
+</details>
+<details>
+<summary> Ejemplo 2 — Flota heterogénea </summary>
+ 
+Una flota heterogénea combina vehículos de distintos tipos con diferentes capacidades, costos y restricciones operativas. Cada tipo se agrega por separado al modelo. A continuación se definen dos tipos de vehículos: un furgón y un camión grande.
+ 
+```python
+m = Model()
+ 
+m.add_depot(
+    x    = 4.7110,
+    y    = -74.0721,
+    name = "Deposito_Central"
+)
+ 
+# Turno en horas — compartido por ambos tipos
+tw_early_h = 8    # 8:00
+tw_late_h  = 18   # 18:00
+
+# Crear perfiles de enrutamiento por tipo de vehículo
+perfil_furgon = m.add_profile(name="Mediano")
+perfil_camion = m.add_profile(name="Pesado")
+ 
+# Conversión a minutos
+tw_early_min = tw_early_h * 60   # 480
+tw_late_min  = tw_late_h  * 60   # 1080
+ 
+# Tipo 1 — Furgón
+m.add_vehicle_type(
+    num_available      = 2,
+    capacity           = 30,
+    fixed_cost         = 300,
+    tw_early           = tw_early_min,
+    tw_late            = tw_late_min,
+    shift_duration     = 8 * 60,    # 480 min
+    max_distance       = 150,
+    unit_distance_cost = 3,
+    unit_duration_cost = 1,
+    max_overtime       = 20,
+    unit_overtime_cost = 4,
+    profile            = perfil_furgon,
+    name               = "Furgon"
+)
+ 
+# Tipo 2 — Camión grande
+m.add_vehicle_type(
+    num_available      = 1,
+    capacity           = 80,
+    fixed_cost         = 800,
+    tw_early           = tw_early_min,
+    tw_late            = tw_late_min,
+    shift_duration     = 10 * 60,   # 600 min
+    max_distance       = 300,
+    unit_distance_cost = 2,
+    unit_duration_cost = 1,
+    max_overtime       = 60,
+    unit_overtime_cost = 3,
+    profile            = perfil_camion,
+    name               = "Camion_Grande"
+)
+</details>
+
+<details>
+<summary> Ejemplo 3 — Cargar tipos de vehículos desde un archivo Excel </summary>
+ 
+Cuando la flota tiene varios tipos de vehículos, la forma más práctica es cargarlos desde un archivo Excel. Imaginemos que tenemos un archivo llamado `vehiculos_pyvrp.xlsx` donde los vehículos están distribuidos en tres perfiles: **0** para vehículos livianos, **1** para furgones de tamaño mediano y **2** para camiones pesados.
+ 
+> **Nota:** Los perfiles deben crearse antes de cargar los vehículos. El índice de la columna `profile` en el Excel se usa para seleccionar el objeto perfil correspondiente desde un diccionario.
+ 
+```python
+m = Model()
+ 
+m.add_depot(
+    x    = 4.7110,
+    y    = -74.0721,
+    name = "Deposito_Central"
+)
+ 
+# Crear los tres perfiles de enrutamiento
+perfiles = {
+    0: m.add_profile(name="Liviano"),
+    1: m.add_profile(name="Mediano"),
+    2: m.add_profile(name="Pesado")
+}
+ 
+df = pd.read_excel("vehiculos_pyvrp.xlsx", sheet_name="Vehiculos")
+ 
+for _, row in df.iterrows():
+    m.add_vehicle_type(
+        num_available      = int(row["num_available"]),
+        capacity           = int(row["capacity"]),
+        fixed_cost         = int(row["fixed_cost"]),
+        tw_early           = int(row["tw_early"]),
+        tw_late            = int(row["tw_late"]),
+        shift_duration     = int(row["shift_duration"]),
+        max_distance       = int(row["max_distance"]),
+        unit_distance_cost = int(row["unit_distance_cost"]),
+        unit_duration_cost = int(row["unit_duration_cost"]),
+        max_overtime       = int(row["max_overtime"]),
+        unit_overtime_cost = int(row["unit_overtime_cost"]),
+        profile            = perfiles[int(row["profile"])],
+        name               = str(row["nombre"])
+    )
+ 
+print(f"Tipos de vehículos cargados: {len(m.vehicle_types)}")
+for vt in m.vehicle_types:
+    print(f"  {vt.name} — capacidad: {vt.capacity} | disponibles: {vt.num_available} | perfil: {vt.profile}")
+```
+
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/vehiculos_pyvrp.xlsx" download> Vehiculos Pyvrp</a>
+
+**Solución:**
+
+Tipos de vehículos cargados: 5
+
+| Tipo de vehículo | Capacidad | Vehículos disponibles | Perfil |
+|------------------|-----------|------------------------|--------|
+| Moto | 15 | 4 | 0 |
+| Furgón pequeño | 30 | 3 | 1 |
+| Furgón grande | 50 | 2 | 1 |
+| Camión | 80 | 2 | 2 |
+| Camión pesado | 120 | 1 | 2 |
+
+</details>
+</details>
