@@ -1858,10 +1858,394 @@ else:
 <summary> Red vial Bogotá Dinamica </summary>
 Una empresa de mensajería urbana en Bogotá debe encontrar la ruta de menor costo para un mensajero en moto que parte desde la intersección 1 y debe llegar a la intersección 12. El desafío de este ejercicio va más allá de encontrar el camino más corto en una red estática, ya que la disponibilidad de cada vía y su costo dependen de la hora en que el mensajero llega a cada nodo. Esto significa que una vía que está disponible al inicio del recorrido puede estar bloqueada más adelante si el mensajero llega a ella durante un horario restringido, y el costo de transitarla varía según el nivel de congestión en ese momento. Por esta razón, la validez y el costo de cada arco solo pueden determinarse en el momento exacto en que el mensajero llega al nodo desde el que inicia ese tramo.
     
-**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20Red%20de%20Distribuci%C3%B3n%20FreshChain.pdf" download>Enunciado Red de Distribución FreshChain</a>
+**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20Red%20vial%20Bogot%C3%A1%20Dijkstra.pdf" download>Enunciado Red vial Bogotá Dijkstra</a>
 
-**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/red_FreshChain.xlsx" download>Red FreshChain</a>
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/base_datos_red_vial_bogota.xlsx" download>Base de datos Red vial Bogotá</a>
 
 **Solución:**
+
+Importación de librerías:
+```python
+import pandas as pd
+import heapq
+import re
+```
+Parámetros del modelo:
+
+Define los parámetros necesarios para el ejercicio. Se establece la ruta del archivo Excel, el nodo de origen y el nodo de destino. Luego se definen el costo por minuto en pesos y la demora fija por semáforo en minutos, ambos utilizados en la fórmula de costo de cada vía.
+
+La lista `factores_congestion` almacena las franjas horarias junto con su respectivo factor de ajuste de velocidad, el cual se consulta cada vez que se calcula el costo de transitar una vía en una hora determinada.
+
+El diccionario `nodos_evento` registra los nodos afectados por eventos con sus respectivas franjas de bloqueo: el nodo 7 por la marcha en la NQS entre las 8:00 y las 12:00, y el nodo 4 por el cierre de Corferias entre las 10:00 y las 14:00.
+
+Finalmente, el diccionario `nodos_horario` indica los nodos con restricciones de circulación según la hora: el nodo 9 permite paso únicamente entre las 6:00 y las 16:00, mientras que el nodo 8 permite paso entre las 7:00 y las 20:00.
+
+```python
+Excel_Path = "base_datos_red_vial_bogota.xlsx"
+Origen     = 1
+Destino    = 12
+
+# ── Constantes ────────────────────────────────────────────────────
+Costo_Min  = 800    # pesos por minuto
+Demora_Sem = 1.5    # minutos por semáforo
+
+factores_congestion = [
+    (6,  7,  0.90),
+    (7,  9,  0.50),
+    (9,  16, 1.00),
+    (16, 19, 0.50),
+    (19, 24, 0.85),
+]
+
+nodos_evento = {
+    7: (8,  12),   # Marcha NQS
+    4: (10, 14),   # Cierre Corferias
+}
+
+nodos_horario = {
+    9: (6,  16),
+    8: (7,  20),
+}
+```
+Carga de datos:
+
+Carga la información de la red vial desde el archivo Excel, leyendo cada hoja por separado en un DataFrame individual. Luego construye un único DataFrame consolidado tomando como base la hoja de distancias y agregando como columnas adicionales la velocidad base, el costo del peaje, el número de semáforos y la restricción de cada vía, de modo que toda la información necesaria quede unificada en una sola tabla para su posterior procesamiento.
+
+```python
+df_dist = pd.read_excel(Excel_Path, sheet_name='Distancias')
+df_vel  = pd.read_excel(Excel_Path, sheet_name='Velocidad')
+df_pea  = pd.read_excel(Excel_Path, sheet_name='Peajes')
+df_sem  = pd.read_excel(Excel_Path, sheet_name='Número de semaforos')
+df_res  = pd.read_excel(Excel_Path, sheet_name='Restricciones')
+
+df = df_dist.copy()
+
+df['Velocidad base (Km/h)'] = df_vel['Velocidad base (Km/h)']
+df['Costo por peaje ($)']   = df_pea['Costo por peaje ($)']
+df['Semaforos']             = df_sem['Semaforos']
+df['Restriccion']           = df_res['Restriccion']
+```
+Parsear restricciones:
+
+Esta función recibe el texto de la columna `Restriccion` de cada vía y lo transforma en una lista de tuplas que representan el tipo de restricción y su respectiva franja horaria.
+
+Si el texto corresponde a `Libre`, retorna una tupla indicando que la vía está disponible durante las 24 horas del día. Si contiene `Obras`, retorna la tupla `(obras, 0, 0)`, indicando que la vía permanece cerrada de forma permanente y no tiene una franja horaria asociada.
+
+En el caso de restricciones por `Pico y placa`, la función extrae todas franjas horarias presentes en el texto, como `7-9` o `17-19`, y genera una tupla por cada intervalo en el que la vía presenta restricción de circulación.
+
+```python
+def _parsear_restriccion(texto):
+    """Convierte el texto de restricción en lista de tuplas (tipo, h_ini, h_fin)."""
+
+    t = str(texto).strip()
+
+    if t == 'Libre':
+        return [('libre', 0, 24)]
+
+    if 'Obras' in t:
+        return [('obras', 0, 0)]
+
+    franjas = re.findall(r'(\d+)-(\d+)', t)
+
+    return [
+        ('pico_placa', int(a), int(b))
+        for a, b in franjas
+    ]
+```
+
+Construcción de la lista de vías:
+
+Transforma el DataFrame consolidado en una lista de tuplas llamada `vias`, donde cada tupla contiene toda la información de una vía: nodo de origen, nodo de destino, distancia, velocidad base, costo del peaje, número de semáforos, tipo de restricción, franja horaria de la restricción y nombre de la vía.
+
+Para construir esta estructura, se recorre cada fila del DataFrame y se aplica la función `_parsear_restriccion`, la cual descompone la restricción de cada vía en sus respectivas franjas horarias. De esta manera, una vía con restricciones de tipo pico y placa en múltiples intervalos se representa como varias tuplas independientes dentro de la lista `vias`.
+
+```python
+vias = []
+
+for _, row in df.iterrows():
+
+    o      = int(row['Nodo de origen'])
+    d      = int(row['Nodo de destino'])
+    dist   = float(row['Distancia (Km)'])
+    vel    = float(row['Velocidad base (Km/h)'])
+    peaje  = float(row['Costo por peaje ($)'])
+    sem    = int(row['Semaforos'])
+    nombre = str(row['Via'])
+
+    for tipo, h_ini, h_fin in _parsear_restriccion(row['Restriccion']):
+
+        vias.append(
+            (o, d, dist, vel, peaje, sem, tipo, h_ini, h_fin, nombre)
+        )
+```
+
+Factor de congestión:
+
+Esta función recorre la lista de franjas horarias y retorna el factor de congestión correspondiente a la hora recibida, identificando en qué intervalo se encuentra. Este factor se utiliza para ajustar la velocidad base de cada vía y así calcular la velocidad real de circulación en un momento específico.
+
+Si la hora no pertenece a ninguna de las franjas definidas, la función retorna `1.0` como valor por defecto, lo que equivale a no aplicar ningún ajuste sobre la velocidad base.
+
+```python
+
+def get_factor(hora):
+    """
+    Retorna el factor de congestión correspondiente a la hora recibida
+    según la tabla definida en el enunciado.
+
+    Parámetros
+    ----------
+    hora : float
+        Hora del día (puede ser decimal, ej: 8.5 = 8:30)
+
+    Retorna
+    -------
+    float
+        Factor de congestión
+    """
+
+    for h_ini, h_fin, factor in factores_congestion:
+        if h_ini <= hora < h_fin:
+            return factor
+
+    return 1.0
+```
+Cálculo del costo de una vía: 
+
+Esta función calcula el costo total en pesos de transitar una vía a una hora determinada.
+
+Primero, obtiene el factor de congestión mediante la función `get_factor` y lo multiplica por la velocidad base para determinar la velocidad real de circulación en ese instante. Con esta velocidad ajustada, se calcula el costo asociado a la distancia recorrida, dividiendo la distancia entre la velocidad real, convirtiendo el resultado a minutos y multiplicándolo por el costo por minuto.
+
+Posteriormente, se calcula el costo asociado a los semáforos, multiplicando el número de semáforos por la demora fija de cada uno y por el costo por minuto. Finalmente, se suma el costo por distancia, el costo de peaje y el costo de semáforos para obtener el costo total de la vía.
+
+```python
+def calcular_costo(dist, vel_base, peaje, semaforos, hora):
+    """
+    Retorna el costo total en pesos de transitar una vía a la hora dada,
+    aplicando la fórmula definida en el enunciado.
+
+    Parámetros
+    ----------
+    dist      : float — distancia en km
+    vel_base  : float — velocidad base en km/h
+    peaje     : float — costo fijo del peaje en pesos
+    semaforos : int   — número de semáforos en el tramo
+    hora      : float — hora estimada de llegada al nodo origen del arco
+
+    Retorna
+    -------
+    float — costo total en pesos
+    """
+
+    factor     = get_factor(hora)
+    velocidad  = vel_base * factor
+
+    costo_dist = (dist / velocidad) * 60 * Costo_Min
+    costo_sem  = semaforos * Demora_Sem * Costo_Min
+
+    return costo_dist + peaje + costo_sem
+```
+
+Arcos disponibles desde un nodo: 
+
+Esta función recibe un nodo y la hora estimada de llegada a ese nodo, y retorna únicamente los arcos salientes que están disponibles en ese momento.
+
+Para ello recorre la lista completa de vías y filtra primero aquellas que parten del nodo recibido. Posteriormente, aplica las restricciones definidas en el enunciado:
+
+- Arcos cerrados por obras  
+- Arcos con pico y placa activo a la hora dada  
+- Arcos cuyo nodo de destino se encuentra bloqueado por un evento en curso  
+- Arcos cuyo nodo de destino está fuera de su horario de circulación permitido  
+
+Para los arcos que cumplen todas las condiciones, se calcula la velocidad real ajustando la velocidad base con el factor de congestión correspondiente a la hora actual. Con esta velocidad se obtiene el tiempo de recorrido del arco y su costo total en pesos mediante la función `calcular_costo`.
+
+Finalmente, se retorna la lista de arcos disponibles con toda su información, lista para ser utilizada por el algoritmo de Dijkstra.
+
+```python
+def arcos_disponibles(nodo, hora):
+    """
+    Dado un nodo y la hora estimada de llegada a ese nodo, retorna
+    únicamente los arcos salientes disponibles en ese momento.
+
+    Se excluyen:
+      - Arcos cerrados por obras
+      - Arcos con pico y placa activo a esa hora
+      - Arcos cuyo nodo de destino esté bloqueado por un evento
+      - Arcos cuyo nodo de destino esté fuera de su horario de circulación
+
+    Parámetros
+    ----------
+    nodo : int
+        Nodo de origen desde el que se exploran los arcos
+    hora : float
+        Hora estimada de llegada al nodo
+
+    Retorna
+    -------
+    list
+        Lista de tuplas:
+        (destino, dist, velocidad, peaje, sem, tiempo_arco, costo_arco)
+    """
+
+    disponibles = []
+
+    for o, d, dist, vel, peaje, sem, tipo, h_ini, h_fin, nombre in vias:
+
+        if o != nodo:
+            continue
+
+        # Arco cerrado por obras
+        if tipo == 'obras':
+            continue
+
+        # Arco con pico y placa activo
+        if tipo == 'pico_placa' and h_ini <= hora < h_fin:
+            continue
+
+        # Nodo destino bloqueado por evento
+        if d in nodos_evento:
+            hi, hf = nodos_evento[d]
+            if hi <= hora < hf:
+                continue
+
+        # Nodo destino fuera de horario permitido
+        if d in nodos_horario:
+            hi, hf = nodos_horario[d]
+            if not (hi <= hora < hf):
+                continue
+
+        factor = get_factor(hora)
+        velocidad = vel * factor
+
+        tiempo_arco = dist / velocidad  # horas
+        costo_arco = calcular_costo(dist, vel, peaje, sem, hora)
+
+        disponibles.append(
+            (d, dist, velocidad, peaje, sem, tiempo_arco, costo_arco)
+        )
+
+    return disponibles
+```
+
+Implementación del algoritmo de Dijkstra:
+
+La función implementa una versión extendida del algoritmo de Dijkstra adaptada a una red vial con restricciones dinámicas dependientes del tiempo.
+
+El algoritmo comienza construyendo el conjunto de nodos de la red a partir de la lista de vías. Posteriormente, se inicializan las estructuras de datos principales: `costo`, `predecesor` y `hora_nodo`. El diccionario `costo` asigna inicialmente infinito a cada nodo, indicando que aún no se ha encontrado una ruta hacia ellos. El diccionario `predecesor` se inicializa en `None` para permitir la reconstrucción de la ruta óptima al finalizar el algoritmo. Por su parte, `hora_nodo` almacena la hora estimada de llegada a cada nodo, inicializada también en infinito.
+
+El nodo origen se inicializa con costo cero y con la hora de inicio del recorrido. Se crea el conjunto `visitados` vacío y se inserta el nodo origen en la cola de prioridad junto con su costo y hora de llegada.
+
+El ciclo principal se ejecuta mientras la cola de prioridad no esté vacía. En cada iteración se extrae el nodo con menor costo acumulado junto con su hora de llegada. Si el nodo ya fue visitado, se descarta; de lo contrario, se marca como visitado.
+
+Luego, se obtienen los arcos disponibles desde el nodo actual utilizando la función `arcos_disponibles(u, hora_actual)`, la cual filtra únicamente las vías habilitadas según restricciones de tiempo, eventos y condiciones de circulación.
+
+Para cada vecino alcanzable, se calcula el costo tentativo sumando el costo acumulado hasta el nodo actual y el costo del arco. También se calcula la hora estimada de llegada al vecino sumando el tiempo de recorrido del arco a la hora actual.
+
+Si el costo tentativo mejora el mejor costo registrado para ese nodo, se actualizan el costo, el predecesor y la hora de llegada. Finalmente, el vecino se inserta en la cola de prioridad para continuar la exploración en iteraciones posteriores.
+
+```python
+def dijkstra(hora_inicio):
+    """
+    Implementa el algoritmo de Dijkstra de forma manual.
+    En cada paso, al explorar los vecinos de un nodo, usa arcos_disponibles()
+    para determinar qué arcos están disponibles según la hora estimada
+    de llegada a ese nodo.
+
+    Parámetros
+    ----------
+    hora_inicio : float
+        Hora de inicio del recorrido
+
+    Retorna
+    -------
+    costo      : dict
+        Costo mínimo acumulado a cada nodo
+    predecesor : dict
+        Nodo predecesor en la ruta óptima
+    hora_nodo  : dict
+        Hora estimada de llegada a cada nodo
+    """
+
+    nodos = set(o for o, d, *_ in vias) | set(d for o, d, *_ in vias)
+
+    # Inicialización estructuras de datos
+    costo      = {n: float('inf') for n in nodos}
+    predecesor = {n: None for n in nodos}
+    hora_nodo  = {n: float('inf') for n in nodos}
+
+    # Inicialización del origen
+    costo[ORIGEN]     = 0.0
+    hora_nodo[ORIGEN] = hora_inicio
+
+    visitados = set()
+    cola_prioridad = [(0.0, Origen, hora_inicio)]  # (costo, nodo, hora_llegada)
+
+    # Ciclo principal
+    while cola_prioridad:
+
+        # Extraer nodo de menor costo
+        costo_actual, u, hora_actual = heapq.heappop(cola_prioridad)
+
+        # Si ya fue visitado, descartar
+        if u in visitados:
+            continue
+
+        # Marcar como visitado
+        visitados.add(u)
+
+        # Explorar vecinos disponibles según la hora actual
+        for v, dist, vel, peaje, sem, tiempo_arco, costo_arco in arcos_disponibles(u, hora_actual):
+
+            # Calcular costo tentativo
+            costo_tentativo = costo_actual + costo_arco
+            hora_llegada_v  = hora_actual + tiempo_arco
+
+            # Actualización si se encuentra mejor camino
+            if costo_tentativo < costo[v]:
+                costo[v]      = costo_tentativo     # Línea 17
+                predecesor[v] = u                   # Línea 18
+                hora_nodo[v]  = hora_llegada_v
+
+                # Insertar en la cola de prioridad
+                heapq.heappush(
+                    cola_prioridad,
+                    (costo_tentativo, v, hora_llegada_v)
+                )
+
+    return costo, predecesor, hora_nodo
+```
+
+Resultado algortimo: 
+
+Ejecuta el algoritmo de Dijkstra para cada uno de los horarios definidos. Para cada hora del día, se invoca la función `dijkstra()` con la hora de inicio correspondiente y se verifica si el costo del nodo destino es infinito, lo que indicaría que no existe una ruta válida en ese momento debido a las restricciones activas en la red.
+
+En caso de existir una ruta válida, se procede a reconstruir la secuencia óptima de nodos. Este proceso se realiza siguiendo la cadena de predecesores desde el nodo destino hacia atrás hasta llegar al nodo origen. Cada nodo se inserta al inicio de la lista para asegurar que la ruta final quede ordenada desde el origen hasta el destino.
+
+Finalmente, se imprime la ruta óptima como una secuencia ordenada de intersecciones junto con el costo total en pesos.
+
+```python
+for hora in [6, 8, 11, 18]:
+
+    print(f"\n{'='*60}")
+    print(f"  HORA: {hora}:00")
+    print(f"{'='*60}")
+
+    costo, predecesor, hora_nodo = dijkstra(hora_inicio=hora)
+
+    if costo[Destino] == float('inf'):
+        print("  No existe ruta válida a esta hora.")
+        continue
+
+    # Reconstrucción de la ruta
+    ruta = []
+    nodo_actual = DESTINO
+
+    while nodo_actual is not None:
+        ruta.insert(0, nodo_actual)
+        nodo_actual = predecesor[nodo_actual]
+
+    print(f"  Ruta óptima : {' → '.join(map(str, ruta))}")
+    print(f"  Costo total : ${costo[Destino]:,.0f} pesos")
+```
+**Resultado obtenido:**
 
 </details>
