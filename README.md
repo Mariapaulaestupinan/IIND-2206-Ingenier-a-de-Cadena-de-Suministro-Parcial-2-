@@ -2489,3 +2489,104 @@ Primeros 5 clientes:
 | Cliente_5 | 18      | [120, 420]               | 10 min              |
 </details>
 </details>
+
+<details>
+<summary> Deposito </summary>
+
+El depósito es el punto desde el cual parten y al cual regresan los vehículos. Se agrega al modelo usando el método `add_depot()`, que acepta los siguientes parámetros:
+ 
+| Parámetro | Tipo | Obligatorio | Descripción |
+|---|---|---|---|
+| `x` | float | Si | Coordenada x de la ubicación del depósito |
+| `y` | float | Si | Coordenada y de la ubicación del depósito |
+| `tw_early` | int | No | Inicio de operación del depósito. Por defecto 0 |
+| `tw_late` | int | No | Fin de operación del depósito. Sin restricción si no se especifica |
+| `service_duration` | int | No | Tiempo que toma cargar un vehículo al inicio de cada ruta. Por defecto 0 |
+| `name` | str | No | Nombre descriptivo del depósito. Por defecto cadena vacía |
+ 
+> **Nota:** Los parámetros de tiempo (`tw_early`, `tw_late`, `service_duration`) deben expresarse en **minutos** o **segundos**
+> **Nota:** Los ejercicios que se realizan dentro del curso no contempla escenarios multi depositos
+
+<details>
+<summary> Ejemplo 1 — Crear un depósito con coordenadas x, y </summary>
+
+La forma más directa de agregar un depósito es proporcionando sus coordenadas geográficas. A continuación se crea un depósito ubicado en las coordenadas (4.7110, -74.0721), con horario de apertura a las 8:00 y cierre a las 18:00, y un tiempo de carga de 15 minutos.
+ 
+```python
+m = Model()
+ 
+# Horario del depósito en horas
+tw_early_h = 8    # 8:00
+tw_late_h  = 18   # 18:00
+ 
+# Conversión a minutos (PyVRP requiere enteros)
+tw_early_min = tw_early_h * 60   # 480
+tw_late_min  = tw_late_h  * 60   # 1080
+ 
+m.add_depot(
+    x                = 4.7110,
+    y                = -74.0721,
+    tw_early         = tw_early_min,
+    tw_late          = tw_late_min,
+    service_duration = 15,
+    name             = "Deposito_Central"
+)
+```
+</details>
+
+<details>
+<summary> Ejemplo 2 — Crear un depósito sin coordenadas x, y </summary>
+ 
+Cuando se trabaja con una matriz de distancias, el depósito se identifica por su índice dentro de dicha matriz mediante el parámetro `location`. Siguiendo la convención de PyVRP, el depósito debe corresponder al índice 0 de la matriz.
+ 
+```python
+m = Model()
+ 
+# Horario del depósito en horas
+tw_early_h = 8    # 8:00
+tw_late_h  = 18   # 18:00
+ 
+# Conversión a minutos (PyVRP requiere enteros)
+tw_early_min = tw_early_h * 60   # 480
+tw_late_min  = tw_late_h  * 60   # 1080
+ 
+m.add_depot(
+    location         = 0,
+    tw_early         = tw_early_min,
+    tw_late          = tw_late_min,
+    service_duration = 15,
+    name             = "Deposito_Central"
+)
+```
+</details>
+
+<details>
+<summary> Ejemplo 3 — Crear un depósito usando x=0, y=0 </summary>
+  
+Al igual que con los clientes, cuando se dispone de una matriz de distancias precalculada y no se quiere depender de coordenadas geográficas, se pueden usar `x=0` e `y=0` como valores artificiales. En ese caso es obligatorio proveer la matriz de distancias al modelo.
+ 
+```python
+m = Model()
+ 
+# Horario del depósito en horas
+tw_early_h = 8    # 8:00
+tw_late_h  = 18   # 18:00
+ 
+# Conversión a minutos (PyVRP requiere enteros)
+tw_early_min = tw_early_h * 60   # 480
+tw_late_min  = tw_late_h  * 60   # 1080
+ 
+m.add_depot(
+    x                = 0,
+    y                = 0,
+    tw_early         = tw_early_min,
+    tw_late          = tw_late_min,
+    service_duration = 15,
+    name             = "Deposito_Central"
+)
+```
+ 
+> **Nota:** Al usar coordenadas artificiales `x=0, y=0`, es obligatorio proveer la matriz de distancias al modelo. Si no se hace, PyVRP calculará distancias euclidianas desde el origen, lo que producirá resultados incorrectos.
+
+</details>
+</details>
