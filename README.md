@@ -1634,10 +1634,10 @@ grafo = {}
 for _, row in df.iterrows():
     o    = row["Origen"]
     d    = row["Destino"]
-    dist = float(row["Distancia_Km"])
-    vel  = float(row["Velocidad_KmH"])
+    dist = float(row["Distancia (Km)"])
+    vel  = float(row["Velocidad (Km/h)"])
     modo = row["Modo_Transporte"]
-    pea  = float(row["Peaje_USD"])
+    pea  = float(row["Peaje (USD)"])
 
     tij = dist / vel
     cij = Um[modo] * dist + Co * tij + pea
@@ -1842,3 +1842,13 @@ else:
     print("=" * 65)
 ```
 **Resultado obtenido:**
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Ruta óptima| Monterrey → San Luis → Mexico City → Oaxaca → Tapachula → Cartagena |
+| Número de arcos recorridos| 5 |
+| Costo total| $7,454.58 USD |
+| Distancia total| 2,620.0 km |
+| Tiempo total estimado| 35.80 h |
+| Transbordos detectados| Tapachula → Cartagena (Ferroviario → Fluvial) |
+| Recargo por transbordo| +$120 USD |
