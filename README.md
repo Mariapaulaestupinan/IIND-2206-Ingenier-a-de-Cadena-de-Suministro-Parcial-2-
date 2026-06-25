@@ -3626,13 +3626,13 @@ Paso 2 — Escalado
  
 PyVRP requiere valores enteros. Como los datos tienen decimales se usa un factor de escala `ESCALA = 100` para preservar precisión. Todos los tiempos y costos se multiplican por este factor antes de pasarlos al modelo, y al reportar se dividen por `ESCALA` o `ESCALA²` según corresponda.
  
-- **Distancias:** enteras pero se escalan por `ESCALA` para mantener consistencia en la función objetivo
+- **Distancias:** enteras no se escalan
 - **Duraciones:** `distancia / velocidad * 60` puede ser decimal → se escala por `ESCALA`
 - **Tiempos** (`tw_early`, `tw_late`, `service_duration`, `shift_duration`): en minutos → se escalan por `ESCALA`
 - **Costos unitarios** (`unit_distance_cost`, `fixed_cost`): decimales → se escalan por `ESCALA`
 - **Prize:** decimal → se escala por `ESCALA`
   
-Al reportar los resultados se desescala cada componente según cómo fue escalado: la distancia y la duración se dividen por `ESCALA`, el costo fijo y el prize también se dividen por `ESCALA` ya que fueron escalados una sola vez. El costo de distancia en cambio se divide por `ESCALA²`, porque internamente PyVRP lo calcula como el producto de la distancia escalada por el costo unitario escalado, ambos multiplicados por `ESCALA`, resultando en un valor escalado al cuadrado.
+Al reportar los resultados se desescala cada componente según cómo fue escalado: la duración se divide por `ESCALA`, el costo fijo y el prize también se dividen por `ESCALA` ya que fueron escalados una sola vez. Para los componentes de costo que dependen de una magnitud y un costo unitario, como el costo de distancia (distancia × costo_por_km) y el costo de duración (duración × costo_por_minuto), solo se debe escalar uno de los dos factores del producto, nunca ambos. Si se escalan los dos, el costo interno queda multiplicado por `ESCALA²` mientras que el prize y el costo fijo solo por `ESCALA`, rompiendo el balance del objetivo y haciendo que el solver nunca encuentre rentable visitar ningún cliente.
   
 ```python
 ESCALA = 100
@@ -3707,7 +3707,7 @@ for _, row in df_flo.iterrows():
             dist_km = df_dist.loc[frm.name, to.name]
             dur_min = (dist_km / vel) * 60
             m.add_edge(frm, to,
-                       distance = int(dist_km * ESCALA),
+                       distance = int(dist_km),
                        duration = int(dur_min * ESCALA),
                        profile  = p)
 ```
@@ -3724,7 +3724,7 @@ for _, row in df_flo.iterrows():
     m.add_vehicle_type(
         num_available      = int(row["Unidades disp."]),
         capacity           = int(row["Capacidad (kg)"]),
-        max_distance       = int(row["Autonomía (km)"] * ESCALA),
+        max_distance       = int(row["Autonomía (km)"]),
         fixed_cost         = int(row["Costo fijo ($)"]    * ESCALA),
         unit_distance_cost = int(row["Costo por km ($/km)"] * ESCALA),
         tw_early           = DEP_EARLY,
@@ -3734,8 +3734,6 @@ for _, row in df_flo.iterrows():
         name               = tipo
     )
 ```
- 
-> **Nota sobre la autonomía:** la autonomía también se escala por `ESCALA` para que PyVRP pueda compararla directamente con las distancias escaladas. Si la autonomía quedara sin escalar y las distancias sí están escaladas, el modelo interpretaría que los vehículos tienen una autonomía `ESCALA` veces menor a la real, haciendo que muchas rutas queden infactibles.
  
 Paso 7 — Resolver
  
