@@ -4274,3 +4274,15 @@ print(f"  Hora de fin        : {min_a_hora(ruta_min.end_time())}")
 print(f"  Autonomía restante : {autonomia_restante} km")
 print(f"{'='*55}")
 ```
+**Solución:**
+
+Resumen de la ruta
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Secuencia de ruta | DEPOT → C56 → C79 → C21 → C66 → C53 → C44 → C14 → C17 → C67 → C90 → C60 → DEPOT |
+| Distancia total | 17 km |
+| Duración total | 632.3 min |
+| Hora de inicio | 07:00 |
+| Hora de finalización | 17:32 |
+| Autonomía restante | 38 km |
