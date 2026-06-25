@@ -3589,7 +3589,7 @@ Fin       : 14:33
   
 FrescoDistribución S.A.S. es una empresa de distribución de productos refrigerados que opera desde un único depósito y atiende a ocho clientes ubicados en distintas zonas de la ciudad. El problema consiste en diseñar las rutas de distribución que maximicen la utilidad neta de la operación, entendida como los ingresos generados por las entregas y recogidas en cada cliente menos los costos operativos de la flota utilizada. 
 
-**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado FrescoDistribución.pdf" download> Enunciado Fresco Distribución</a>
+**Enunciado:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Enunciado%20FrescoDistribuci%C3%B3n.pdf" download>Enunciado Fresco Distribución</a>
 
 **Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/Datos_FrescoDistribución.xlsx" download> Datos Fresco Distribución</a>
 
