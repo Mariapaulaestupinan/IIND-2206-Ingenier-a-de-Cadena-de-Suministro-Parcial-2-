@@ -2305,28 +2305,22 @@ En esta sección se presentan las funciones y clases principales de PyVRP necesa
  
 ---
 
-<details>
-<summary> Instalación </summary>
+#### Instalación 
  
 PyVRP puede instalarse directamente desde el administrador de paquetes de Python. Basta con ejecutar el siguiente comando en la terminal:
  
 ```bash
 pip install pyvrp
 ```
-</details>
 
-<details>
-<summary> Importación de librerías </summary>
+#### Importación de librerías
  
 Una vez instalada la librería, se importan los módulos necesarios. `Model` es la clase principal con la que se construye el problema.
  
 ```python
 from pyvrp import Model
 ```
-</details>
-
-<details>
-<summary> Creación del modelo </summary>
+#### Creación del modelo 
  
 `Model` es la clase central de PyVRP. Es el objeto sobre el que se construye el problema completo: se le agregan clientes, depósitos, vehículos y arcos. Todo el problema queda contenido en una única instancia de esta clase antes de ser enviado al solver.
  
@@ -2335,8 +2329,7 @@ m = Model()
 ```
 </details> 
 
-<details>
-<summary> Clientes </summary>
+### Clientes 
  
 Un cliente representa cada punto de la red que debe ser visitado por un vehículo. Se agrega al modelo usando el método `add_client()`, que acepta los siguientes parámetros:
  
@@ -2488,10 +2481,8 @@ Primeros 5 clientes:
 | Cliente_4 | 25      | [90, 360]                | 12 min              |
 | Cliente_5 | 18      | [120, 420]               | 10 min              |
 </details>
-</details>
 
-<details>
-<summary> Deposito </summary>
+#### Deposito 
 
 El depósito es el punto desde el cual parten y al cual regresan los vehículos. Se agrega al modelo usando el método `add_depot()`, que acepta los siguientes parámetros:
  
@@ -2589,10 +2580,8 @@ m.add_depot(
 > **Nota:** Al usar coordenadas artificiales `x=0, y=0`, es obligatorio proveer la matriz de distancias al modelo. Si no se hace, PyVRP calculará distancias euclidianas desde el origen, lo que producirá resultados incorrectos.
 
 </details>
-</details>
 
-<details>
-<summary> Tipos de vehículos </summary>
+#### Tipos de vehículos 
 
 Un tipo de vehículo agrupa las características operativas que comparten los vehículos de una misma categoría dentro de la flota, como su capacidad, horario de operación, costos asociados y perfil de enrutamiento. Se agrega al modelo usando el método `add_vehicle_type()`, que acepta los siguientes parámetros:
  
@@ -2784,10 +2773,8 @@ Tipos de vehículos cargados: 5
 | Camión pesado | 120 | 1 | 2 |
 
 </details>
-</details>
 
-<details>
-<summary> Arcos </summary>
+#### Arcos 
 
 Un arco conecta dos ubicaciones de la red e indica la distancia y duración del recorrido entre ellas. Se agrega al modelo usando el método `add_edge()`, que acepta los siguientes parámetros:
  
@@ -3158,9 +3145,9 @@ Rutas asignadas
 | Cliente_2 → Cliente_1 | 107 min | 214 |
 
 </details>
-</details>
-<details>
-<summary> Perfiles de enrutamiento </summary>
+
+
+#### Perfiles de enrutamiento 
  
 Un perfil de enrutamiento define un conjunto de arcos con sus distancias y duraciones, formando una matriz completa de conectividad entre ubicaciones. Cada tipo de vehículo tiene un perfil asignado, y ese perfil determina exactamente qué arcos puede recorrer durante su ruta.
  
@@ -3466,9 +3453,8 @@ Rutas asignadas
 | Furgón | Cliente_3 → Cliente_1 → Cliente_4 | 137.89 km | 100.53 min |
 
 </details>
-</details>
-<details>
-<summary> Solución </summary>
+
+#### Solución 
  
 Una vez construido el modelo con clientes, depósito, tipos de vehículo y arcos, se resuelve llamando al método `m.solve()`. Este método recibe obligatoriamente un criterio de parada y opcionalmente una semilla para el generador aleatorio.
  
@@ -3582,7 +3568,6 @@ Fin       : 14:33
  
 > **Nota:** Los tiempos de `start_time()`, `end_time()`, `start_service` y `end_service` están en las mismas unidades con las que se definieron las ventanas de tiempo en el modelo. Si se usó escalado, deben desescalarse antes de convertirlos a formato `HH:MM`. La función `min_a_hora()` asume que los valores ya están en minutos desde medianoche.
 
-</details>
 </details>
 
 #### Ejercicios PyVRP
