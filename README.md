@@ -2811,6 +2811,8 @@ PyVRP requiere que `distance` y `duration` sean enteros. Dependiendo del origen 
   
 En todos los casos donde se escale, es necesario escalar de forma consistente todos los tiempos y costos del modelo (`tw_early`, `tw_late`, `service_duration`, `shift_duration`, `unit_distance_cost`, `unit_duration_cost`, `fixed_cost`) por el mismo factor, y desescalar los resultados al reportar.
 
+> **Nota:** si se escala la distancia, no se debe escalar `unit_distance_cost`, y si se escala la duración, no se debe escalar `unit_duration_cost`. Escalar ambos factores del mismo producto haría que ese componente del costo quede multiplicado por `ESCALA²` mientras que el `fixed_cost` y el `prize` solo por `ESCALA`, rompiendo el balance del objetivo. Adicionalmente, si el modelo tiene restricción de autonomía `(max_distance)`, esta también debe escalarse por el mismo factor que las distancias para que PyVRP pueda compararlas correctamente.
+
 <details>
 <summary> Ejemplo 1 — Distancia euclidiana calculada desde coordenadas </summary>
  
