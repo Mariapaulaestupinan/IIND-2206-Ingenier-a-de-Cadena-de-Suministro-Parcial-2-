@@ -3841,4 +3841,43 @@ for route in sol.routes():
  
 print(f"\n{'─'*55}")
 ```
+**Solución:**
+Resumen global
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Clientes visitados | 5 de 8 |
+| Ingresos totales | $3,915.00 |
+| Costo por distancia | $4.83 |
+| Costo fijo | $270.00 |
+| Costo total | $274.83 |
+| Utilidad neta | $3,640.17 |
+
+Rutas asignadas
+
+| Vehículo | Ruta | Distancia | Duración | Ingresos | Costo distancia | Costo fijo | Utilidad |
+|----------|------|-----------|----------|----------|-----------------|------------|----------|
+| Camión Grande | C5 → C2 → C1 | 125 km | 294.3 min | $2,237.50 | $312.50 | $200.00 | $1,725.00 |
+| Furgoneta | C6 → C4 | 142 km | 201.8 min | $1,677.50 | $170.40 | $70.00 | $1,437.10 |
+
+Detalle de recorrido por vehículo
+
+Camión Grande
+
+| Nodo | Llegada | Salida | Carga salida (kg) |
+|------|---------|--------|-------------------|
+| Depósito | 06:51 | 06:51 | 880 |
+| C5 | 08:00 | 08:35 | 725 |
+| C2 | 09:35 | 09:55 | 655 |
+| C1 | 10:32 | 10:57 | 565 |
+| Depósito | 11:45 | 11:45 | 565 |
+
+Furgoneta
+
+| Nodo | Llegada | Salida | Carga salida (kg) |
+|------|---------|--------|-------------------|
+| Depósito | 09:48 | 09:48 | 880 |
+| C6 | 11:00 | 11:20 | 860 |
+| C4 | 11:52 | 12:10 | 880 |
+| Depósito | 13:10 | 13:10 | 880 |
 </details>
