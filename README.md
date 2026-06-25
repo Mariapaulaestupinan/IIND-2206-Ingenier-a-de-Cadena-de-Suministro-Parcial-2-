@@ -2805,105 +2805,136 @@ Aproximación de enteros
  
 PyVRP requiere que `distance` y `duration` sean enteros. Dependiendo del origen de los datos, esto puede requerir distintos tratamientos:
  
-- **Coordenadas geográficas (latitud y longitud):** la distancia euclidiana entre dos puntos cercanos es del orden de `0.01` grados, por lo que al aplicar `int()` directamente el resultado es `0`. En este caso es obligatorio escalar las distancias y duraciones multiplicándolas por un factor suficientemente grande antes de convertirlas a entero.
-- **Matriz de distancias o duraciones con decimales:** si los valores de la matriz son decimales, aplicar `int()` directamente introduce un error de truncamiento. Si los valores son suficientemente grandes (por ejemplo, distancias en kilómetros enteros), el truncamiento es despreciable. Si son pequeños o requieren precisión, se deben escalar también.
+- **Coordenadas geográficas (latitud y longitud):** la distancia euclidiana no es válida con coordenadas geográficas porque un grado de latitud y un grado de longitud no miden lo mismo en kilómetros, y esa diferencia varía según la ubicación en el planeta. La forma correcta es usar la fórmula de **Haversine**, que calcula la distancia real en kilómetros sobre la superficie de la Tierra. Como el resultado es decimal, es obligatorio escalar las distancias y duraciones multiplicándolas por un factor suficientemente grande antes de convertirlas a entero.
+
+- **Matriz de distancias o duraciones con decimales:** si los valores de la matriz son decimales, aplicar `int()` directamente introduce un error. Si los valores son suficientemente grandes el error es despreciable. Si son pequeños o requieren precisión, se deben escalar también.
   
 En todos los casos donde se escale, es necesario escalar de forma consistente todos los tiempos y costos del modelo (`tw_early`, `tw_late`, `service_duration`, `shift_duration`, `unit_distance_cost`, `unit_duration_cost`, `fixed_cost`) por el mismo factor, y desescalar los resultados al reportar.
 
 <details>
 <summary> Ejemplo 1 — Distancia euclidiana calculada desde coordenadas </summary>
  
-Los clientes tienen coordenadas geográficas `x` e `y` almacenadas en un archivo Excel. La distancia entre cada par de ubicaciones se calcula con la fórmula euclidiana y la duración se obtiene dividiendo esa distancia entre la velocidad promedio del vehiculo. Ambos valores se redondean a entero con `int()`.
+Los clientes tienen coordenadas geográficas `x` e `y` (latitud y longitud) almacenadas en un archivo Excel. La distancia entre cada par de ubicaciones se calcula con la fórmula de **Haversine**, que mide la distancia real en kilómetros sobre la superficie de la Tierra teniendo en cuenta su curvatura. La duración se obtiene dividiendo esa distancia entre la velocidad promedio, expresada en minutos.
  
 ```python
 import math
 import pandas as pd
 from pyvrp import Model
 from pyvrp.stop import MaxRuntime
- 
+
+ESCALA    = 10000   # factor de escala 
+VELOCIDAD = 40      # km/h
+
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calcula la distancia en kilómetros entre dos puntos
+    dados en grados de latitud y longitud.
+    """
+    R    = 6371  # radio de la Tierra en km
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlam = math.radians(lon2 - lon1)
+    a    = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlam/2)**2
+    return 2 * R * math.asin(math.sqrt(a))
+
 m = Model()
 perfil = m.add_profile()
- 
+
 df = pd.read_excel("arcos_clientes_coordenadas.xlsx", sheet_name="Clientes")
- 
+
 # ── Depósito ──────────────────────────────────────────────────────
-fila_dep  = df[df["nombre"] == "Deposito"].iloc[0]
+fila_dep = df[df["nombre"] == "Deposito"].iloc[0]
 depot = m.add_depot(
-    x    = fila_dep["x"],
-    y    = fila_dep["y"],
-    tw_early = int(row["tw_early (min)"]),
-    tw_late = int(row["tw_late (min)"]),
-    service_duration = int(row["service_duration (min)"]),
-    name = fila_dep["nombre"]
+    x                = fila_dep["x"],
+    y                = fila_dep["y"],
+    tw_early         = int(fila_dep["tw_early (min)"]         * ESCALA),
+    tw_late          = int(fila_dep["tw_late (min)"]           * ESCALA),
+    service_duration = int(fila_dep["service_duration (min)"] * ESCALA),
+    name             = fila_dep["nombre"]
 )
- 
+
 # ── Clientes ──────────────────────────────────────────────────────
 for _, row in df[df["nombre"] != "Deposito"].iterrows():
     m.add_client(
         x                = row["x"],
         y                = row["y"],
         delivery         = int(row["delivery"]),
-        tw_early         = int(row["tw_early (min)"]),
-        tw_late          = int(row["tw_late (min)"]),
-        service_duration = int(row["service_duration (min)"]),
+        tw_early         = int(row["tw_early (min)"]         * ESCALA),
+        tw_late          = int(row["tw_late (min)"]           * ESCALA),
+        service_duration = int(row["service_duration (min)"] * ESCALA),
         name             = str(row["nombre"])
     )
- 
+
 # ── Tipo de vehículo ──────────────────────────────────────────────
 m.add_vehicle_type(
     num_available      = 2,
     capacity           = 50,
-    tw_early           = 480,
-    tw_late            = 1080,
-    shift_duration     = 480,
+    tw_early           = int(480 * ESCALA),
+    tw_late            = int(1080 * ESCALA),
+    shift_duration     = int(50  * ESCALA),
     unit_distance_cost = 3,
     unit_duration_cost = 2,
     profile            = perfil,
     name               = "Vehiculo"
 )
- 
-# ── Arcos: distancia euclidiana y duración desde velocidad ────────
 
-VELOCIDAD = 40 # Km/h
- 
+# ── Arcos: distancia escalada y duración ──
 for frm in m.locations:
     for to in m.locations:
-        dist_real = math.sqrt((frm.x - to.x)**2 + (frm.y - to.y)**2)
+        dist_real = haversine(frm.x, frm.y, to.x, to.y)   # km reales
         dur_min   = (dist_real / VELOCIDAD) * 60
         m.add_edge(frm, to,
-                   distance = int(dist_real),
-                   duration = int(dur_min),
+                   distance = int(dist_real * ESCALA),
+                   duration = int(dur_min   * ESCALA),
                    profile  = perfil)
- 
+
 # ── Resolver ──────────────────────────────────────────────────────
 result = m.solve(stop=MaxRuntime(3), seed=42)
 sol    = result.best
- 
-# ── Resultados ────────────────────────────────────────────────────
+
+# ── Resultados desescalados ───────────────────────────────────────
 print(f"Factible        : {sol.is_feasible()}")
-print(f"Distancia total : {sol.distance()} km")
-print(f"Duración total  : {sol.duration()} min")
-print(f"Costo distancia : {sol.distance_cost()}")
-print(f"Costo duración  : {sol.duration_cost()}")
-print(f"Costo total     : {sol.distance_cost() + sol.duration_cost()}")
- 
+print(f"Distancia total : {sol.distance()      / ESCALA:.4f} km")
+print(f"Duración total  : {sol.duration()      / ESCALA:.2f} min")
+print(f"Costo distancia : {sol.distance_cost() / ESCALA:.2f}")
+print(f"Costo duración  : {sol.duration_cost() / ESCALA:.2f}")
+print(f"Costo total     : {(sol.distance_cost() + sol.duration_cost()) / ESCALA:.2f}")
+
 for route in sol.routes():
     nombres = [m.locations[v].name for v in route.visits()]
     print(f"\nRuta        : {' → '.join(nombres)}")
-    print(f"  Distancia : {route.distance()} km")
-    print(f"  Duración  : {route.duration()} min")
+    print(f"  Distancia : {route.distance() / ESCALA:.4f} km")
+    print(f"  Duración  : {route.duration() / ESCALA:.2f} min")
 ```
 
 **Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/arcos_clientes_coordenadas.xlsx" download> Clientes Coordenadas</a>
 
 **Solución:**
 
+Resumen general
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Distancia total recorrida | 9.8335 km |
+| Duración total | 91.75 min |
+| Costo por distancia | 29.50 |
+| Costo por duración | 183.50 |
+| Costo total | 213.00 |
+
+Rutas asignadas
+
+| Ruta | Distancia | Duración |
+|------|-----------|----------|
+| Cliente_2 → Cliente_4 | 6.4717 km | 46.71 min |
+| Cliente_3 → Cliente_1 | 3.3618 km | 45.04 min |
+
 </details>
 
 <details>
 <summary> Ejemplo 2 — Matriz de distancias </summary>
  
-Las distancias entre ubicaciones se obtienen a partir de una matriz almacenada en el archivo Excel, mientras que la duración de cada arco se calcula dividiendo la distancia recorrida y la velocidad promedio definida para el vehículo.
+Las distancias entre ubicaciones se obtienen a partir de una matriz almacenada en el archivo Excel, mientras que la duración de cada arco se calcula dividiendo la distancia recorrida por la velocidad promedio definida para el vehículo.
 
 Los clientes se incorporan al modelo respetando el mismo orden en el que aparecen registrados en la hoja de clientes. Posteriormente, durante la construcción de los arcos, se recorren las ubicaciones generadas dentro del modelo y se utiliza el nombre asociado a cada una para consultar directamente la distancia correspondiente en la matriz, utilizando la ubicación de origen como fila y la de destino como columna.
 
@@ -2922,11 +2953,16 @@ from pyvrp.stop import MaxRuntime
 m = Model()
 perfil = m.add_profile()
  
-df = pd.read_excel("arcos_distancias_matriz.xlsx", sheet_name="Clientes")
+df = pd.read_excel("arcos_distancia_matriz.xlsx", sheet_name="Clientes")
  
 # ── Depósito ──────────────────────────────────────────────────────
 fila_dep = df[df["nombre"] == "Deposito"].iloc[0]
-depot = m.add_depot(x=0, y=0, name=fila_dep["nombre"])
+depot = m.add_depot(x=0,
+                    y=0, 
+                    tw_early = int(fila_dep["tw_early (min)"]),
+                    tw_late  = int(fila_dep["tw_late (min)"]),
+                    service_duration = int(fila_dep["service_duration (min)"]),
+                    name=fila_dep["nombre"])
  
 # ── Clientes con location asignado por orden de aparición ─────────
 for _, row in df[df["nombre"] != "Deposito"].iterrows():
@@ -2934,9 +2970,9 @@ for _, row in df[df["nombre"] != "Deposito"].iterrows():
         x                = 0,
         y                = 0,
         delivery         = int(row["delivery"]),
-        tw_early         = int(row["tw_early"]),
-        tw_late          = int(row["tw_late"]),
-        service_duration = int(row["service_duration"]),
+        tw_early         = int(row["tw_early (min)"]),
+        tw_late          = int(row["tw_late (min)"]),
+        service_duration = int(row["service_duration (min)"]),
         name             = str(row["nombre"])
     )
  
@@ -2946,7 +2982,7 @@ m.add_vehicle_type(
     capacity           = 50,
     tw_early           = 480,
     tw_late            = 1080,
-    shift_duration     = 480,
+    shift_duration     = 100,
     unit_distance_cost = 3,
     unit_duration_cost = 2,
     profile            = perfil,
@@ -2954,7 +2990,7 @@ m.add_vehicle_type(
 )
  
 # ── Arcos desde matriz de distancias, duración desde velocidad ────
-df_dist   = pd.read_excel("arcos_distancias_matriz.xlsx", sheet_name="Distancias", index_col=0)
+df_dist   = pd.read_excel("arcos_distancia_matriz.xlsx", sheet_name="Distancias Km", index_col=0)
 VELOCIDAD = 40 # Km/ h
  
 # Los nodos se recorren en el mismo orden en que fueron agregados al modelo
@@ -2993,6 +3029,28 @@ for route in sol.routes():
 
 > **Nota:** Este código funciona tanto para matrices simétricas como asimétricas, ya que recorre todos los pares ordenados `(frm, to)` y agrega un arco independiente para cada dirección.
 
+> **Nota:** En este ejemplo no se escala porque las distancias de la matriz ya son enteros en kilómetros, por lo que `int(dist)` no produce pérdida de información. La duración calculada como `(dist / VELOCIDAD) * 60` puede resultar decimal en algunos casos, pero el error de truncamiento con `int()` es de menos de un minuto, lo cual es despreciable para este tipo de problema. Si se requiere mayor precisión, se debe escalar toda la información del modelo por un factor común.
+
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/arcos_distancia_matriz.xlsx" download> Clientes Matriz Distancia</a>
+
+**Solución:**
+
+Resumen general
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Distancia total recorrida | 69 km |
+| Duración total | 180 min |
+| Costo por distancia | 207 |
+| Costo por duración | 360 |
+| Costo total | 567 |
+
+Rutas asignadas
+
+| Ruta | Distancia | Duración |
+|------|-----------|----------|
+| Cliente_4 → Cliente_3 | 30 km | 85 min |
+| Cliente_1 → Cliente_2 | 39 km | 95 min |
 </details>
 
 <details>
@@ -3015,7 +3073,12 @@ df = pd.read_excel("arcos_matriz_duracion.xlsx", sheet_name="Clientes")
  
 # ── Depósito ──────────────────────────────────────────────────────
 fila_dep = df[df["nombre"] == "Deposito"].iloc[0]
-depot = m.add_depot(x=0, y=0, name=fila_dep["nombre"])
+depot = m.add_depot(x=0, 
+                    y=0, 
+                    tw_early = int(fila_dep["tw_early (min)"]),
+                    tw_late  = int(fila_dep["tw_late (min)"]),
+                    service_duration = int(fila_dep["service_duration (min)"]),
+                    name=fila_dep["nombre"])
  
 # ── Clientes con location asignado por orden de aparición ─────────
 for _, row in df[df["nombre"] != "Deposito"].iterrows():
@@ -3023,9 +3086,9 @@ for _, row in df[df["nombre"] != "Deposito"].iterrows():
         x                = 0,
         y                = 0,
         delivery         = int(row["delivery"]),
-        tw_early         = int(row["tw_early"]),
-        tw_late          = int(row["tw_late"]),
-        service_duration = int(row["service_duration"]),
+        tw_early         = int(row["tw_early (min)"]),
+        tw_late          = int(row["tw_late (min)"]),
+        service_duration = int(row["service_duration (min)"]),
         name             = str(row["nombre"])
     )
  
@@ -3036,7 +3099,7 @@ m.add_vehicle_type(
     capacity           = 50,
     tw_early           = 480,
     tw_late            = 1080,
-    shift_duration     = 480,
+    shift_duration     = 120,
     unit_distance_cost = 0,
     unit_duration_cost = 2,
     profile            = perfil,
@@ -3044,7 +3107,7 @@ m.add_vehicle_type(
 )
  
 # ── Arcos desde matriz de duraciones, distance=0 ──────────────────
-df_dur = pd.read_excel("arcos_matriz_duracion.xlsx", sheet_name="Duraciones", index_col=0)
+df_dur = pd.read_excel("arcos_matriz_duracion.xlsx", sheet_name="Duraciones (min)", index_col=0)
 locs   = list(m.locations)
  
 for frm in locs:
@@ -3071,3 +3134,23 @@ for route in sol.routes():
     print(f"  Costo    : {route.duration_cost()}")
 ```
 > **Nota:** Este código funciona tanto para matrices simétricas como asimétricas, ya que recorre todos los pares ordenados `(frm, to)` y agrega un arco independiente para cada dirección.
+
+> **Nota:** En este ejemplo no es necesario escalar ya que las duraciones de la matriz son enteras en minutos, por lo que `int(dur)` no produce pérdida de información.
+
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/arcos_matriz_duracion.xlsx" download> Clientes Matriz Duración</a>
+
+**Solución:**
+
+Resumen general
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Duración total | 200 min |
+| Costo por duración | 400 |
+
+Rutas asignadas
+
+| Ruta | Duración | Costo |
+|------|----------|-------|
+| Cliente_3 → Cliente_4 | 93 min | 186 |
+| Cliente_2 → Cliente_1 | 107 min | 214 |
