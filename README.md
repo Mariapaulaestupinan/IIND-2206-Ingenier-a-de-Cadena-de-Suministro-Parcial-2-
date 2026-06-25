@@ -3462,3 +3462,123 @@ Rutas asignadas
 |----------|------|-----------|----------|
 | Furgón | Cliente_6 → Cliente_2 → Cliente_5 | 164.90 km | 133.52 min |
 | Furgón | Cliente_3 → Cliente_1 → Cliente_4 | 137.89 km | 100.53 min |
+
+</details>
+</details>
+<details>
+<summary> Solución </summary>
+ 
+Una vez construido el modelo con clientes, depósito, tipos de vehículo y arcos, se resuelve llamando al método `m.solve()`. Este método recibe obligatoriamente un criterio de parada y opcionalmente una semilla para el generador aleatorio.
+ 
+```python
+from pyvrp.stop import MaxRuntime, MaxIterations
+ 
+result = m.solve(stop=MaxRuntime(30), seed=42)
+```
+ 
+<details>
+<summary> Criterios de parada </summary>
+ 
+PyVRP implementa un algoritmo de búsqueda iterativa que mejora la solución progresivamente. Es necesario indicarle cuándo debe detenerse mediante uno de los siguientes criterios:
+ 
+**`MaxRuntime(segundos)`** — detiene el algoritmo cuando se alcanza el tiempo máximo de ejecución en segundos. Es el criterio más común en la práctica porque permite controlar cuánto tiempo se dedica a la exploración del espacio de busqueda.
+ 
+```python
+result = m.solve(stop=MaxRuntime(60), seed=42)   # máximo 60 segundos
+```
+ 
+**`MaxIterations(iteraciones)`** — detiene el algoritmo cuando se alcanza el número máximo de iteraciones. Útil cuando se quiere garantizar exactamente la misma cantidad de trabajo computacional entre ejecuciones.
+ 
+```python
+result = m.solve(stop=MaxIterations(10000), seed=42)   # máximo 10000 iteraciones
+```
+</details>
+<details>
+<summary> Semilla </summary>
+ 
+El parámetro `seed` controla el generador de números aleatorios del algoritmo. Dado que PyVRP es un algoritmo heurístico con componentes aleatorios, dos ejecuciones con la misma semilla producen exactamente el mismo resultado, lo que permite reproducir soluciones. Cambiar la semilla puede dar soluciones distintas de diferente calidad.
+ 
+```python
+result = m.solve(stop=MaxRuntime(30), seed=42)    # reproducible
+result = m.solve(stop=MaxRuntime(30), seed=123)   # puede dar resultado diferente
+```
+</details>
+<details>
+<summary> Resultados globales </summary>
+ 
+La solución se accede a través de `result.best`, que contiene la mejor solución encontrada durante la ejecución.
+ 
+```python
+sol = result.best
+```
+ 
+Los principales atributos globales disponibles son:
+ 
+```python
+print(f"Factible            : {sol.is_feasible()}")
+print(f"Distancia total     : {sol.distance()}")
+print(f"Duración total      : {sol.duration()}")
+print(f"Costo de distancia  : {sol.distance_cost()}")
+print(f"Costo de duración   : {sol.duration_cost()}")
+print(f"Costo fijo total    : {sol.fixed_vehicle_cost()}")
+print(f"Costo total         : {sol.distance_cost() + sol.duration_cost() + sol.fixed_vehicle_cost()}")
+```
+ 
+Ejemplo de salida:
+ 
+```
+Factible            : True
+Distancia total     : 8450
+Duración total      : 24320
+Costo de distancia  : 25350
+Costo de duración   : 48640
+Costo fijo total    : 1000
+Costo total         : 74990
+```
+ 
+> **Nota:** Si se usó escalado, todos estos valores deben desescalarse dividiendo por el factor correspondiente antes de interpretarlos.
+
+</details>
+<details>
+<summary> Resultados por ruta </summary>
+ 
+Para acceder a los detalles de cada ruta se itera sobre `sol.routes()`. Cada ruta registra su secuencia de nodos, distancia, duración, costos y los tiempos de inicio y fin del servicio en cada nodo mediante `route.schedule()`.
+ 
+```python
+def min_a_hora(minutos):
+    """Convierte minutos desde medianoche a formato HH:MM."""
+    h = int(minutos) // 60
+    m = int(minutos) % 60
+    return f"{h:02d}:{m:02d}"
+ 
+for route in sol.routes():
+    vt      = m.vehicle_types[route.vehicle_type()]
+    nombres = [m.locations[v].name for v in route.visits()]
+ 
+    print(f"Vehículo  : {vt.name}")
+    print(f"Ruta      : {' → '.join(nombres)}")
+    print(f"Distancia : {route.distance()}")
+    print(f"Duración  : {route.duration()} min")
+    print(f"Costo dist: {route.distance_cost()}")
+    print(f"Costo dur : {route.duration_cost()}")
+    print(f"Inicio    : {min_a_hora(route.start_time())}")
+    print(f"Fin       : {min_a_hora(route.end_time())}")
+```
+ 
+Ejemplo de salida:
+ 
+```
+Vehículo  : Furgon
+Ruta      : Cliente_2 → Cliente_5 → Cliente_3
+Distancia : 3120
+Duración  : 8740 min
+Costo dist: 9360
+Costo dur : 17480
+Inicio    : 08:00
+Fin       : 14:33
+```
+ 
+> **Nota:** Los tiempos de `start_time()`, `end_time()`, `start_service` y `end_service` están en las mismas unidades con las que se definieron las ventanas de tiempo en el modelo. Si se usó escalado, deben desescalarse antes de convertirlos a formato `HH:MM`. La función `min_a_hora()` asume que los valores ya están en minutos desde medianoche.
+
+</details>
+</details>
