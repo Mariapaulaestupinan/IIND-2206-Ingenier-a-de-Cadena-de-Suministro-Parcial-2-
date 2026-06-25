@@ -3166,9 +3166,8 @@ Esto permite modelar dos tipos de restricciones operativas que no pueden expresa
  
 - **Restricciones sobre clientes:** ciertos vehículos solo pueden atender a un subconjunto de clientes. Por ejemplo, furgones refrigerados para clientes que requieren cadena de frío, y motos para clientes de paquetería ligera. Esto se modela asignando una distancia muy grande (`INF`) a los arcos que conectan con los clientes que no se pueden atender, haciendo que nunca se incluyan en ninguna ruta.
 - **Restricciones sobre caminos:** ciertos vehículos solo pueden circular por ciertas vías. Por ejemplo, los camiones de carga pesada solo pueden circular por vías principales debido a restricciones de peso y dimensiones, mientras que los furgones, al ser vehículos más compactos, tienen acceso tanto a vías principales como a vías secundarias, lo que les permite alcanzar zonas donde los camiones no pueden ingresar. Esto se modela con matrices de distancias distintas para cada perfil, donde los arcos no permitidos tienen distancia `INF`.
-En ambos casos, `INF` debe ser un número entero suficientemente grande para que los arcos nunca se elijan, pero que no cause desbordamiento numérico. Un valor como `10**4` funciona bien en la mayoría de los casos.
- 
----
+En ambos casos, `INF` debe ser un número entero suficientemente grande para que los arcos nunca se elijan, pero que no cause desbordamiento numérico. Un valor como `100000` funciona bien en la mayoría de los casos.
+
 <details>
 <summary> Ejemplo 1 — Vehículos con clientes restringidos </summary>
  
