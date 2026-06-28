@@ -675,11 +675,11 @@ Ruta de Menor tiempo
 
 | Métrica | Resultado |
 |--------|----------|
-| Ruta | Atlanta → Seattle → Dallas → Washington DC → Las Vegas |
+| Ruta | Boston → Miami → Chicago → Denver → San Diego |
 | Arcos | 4 |
-| Costo total | $52,342.65 |
-| Distancia total | 11,722.0 km |
-| Tiempo total | 21.27 h (1276 min) |
+| Costo total | $31,162.81 |
+| Distancia total | 6,828.0 km |
+| Tiempo total | 13.25 h (795 min) |
 
 </details>
 <details>
