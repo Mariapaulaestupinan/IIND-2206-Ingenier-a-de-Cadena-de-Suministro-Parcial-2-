@@ -1416,8 +1416,6 @@ El objetivo principal es minimizar una función de costo, que puede estar asocia
 
 ### Contenido
 
----
-
 - [PyVRP](#pyvrp)
   - [Funciones principales PyVRP](#funciones-principales-pyvrp)
   - [Ejercicios PyVRP](#ejercicios-pyvrp)
