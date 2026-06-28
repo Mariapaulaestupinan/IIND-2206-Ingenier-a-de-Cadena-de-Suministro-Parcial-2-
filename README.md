@@ -656,7 +656,7 @@ imprimir_resultado(res_b, "Literal b — Menor costo")
  
 # Literal c — Menor tiempo
 G_c   = construir_grafo_c(df, penalizacion_terrestre=50.0)
-res_c = calcular_ruta(G_c, Origen, Destino)
+res_c = calcular_ruta(G_c, "Boston", "San Diego")
 imprimir_resultado(res_c, "Literal c — Menor tiempo | NF=3 | +50 terrestre")
 ```
 **Resultado:** 
