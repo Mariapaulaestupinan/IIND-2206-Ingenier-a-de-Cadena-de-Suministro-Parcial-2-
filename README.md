@@ -1408,8 +1408,6 @@ Una vez finaliza la ejecución del algoritmo, la ruta óptima se reconstruye uti
 ```
 ## Ruteo de vehículos
 
----
-
 En esta sección se abordarán problemas de ruteo de vehículos utilizando la librería **PyVRP**.
 
 A diferencia de los problemas de ruta más corta, donde el objetivo es encontrar el camino óptimo entre dos nodos de una red, los problemas de ruteo de vehículos buscan determinar el conjunto de rutas que debe seguir una flota de vehículos para atender a un grupo de clientes.
@@ -1418,11 +1416,15 @@ El objetivo principal es minimizar una función de costo, que puede estar asocia
 
 ### Contenido
 
+---
+
 - [PyVRP](#pyvrp)
   - [Funciones principales PyVRP](#funciones-principales-pyvrp)
   - [Ejercicios PyVRP](#ejercicios-pyvrp)
 
 ### PyVRP
+
+---
 
 **PyVRP** es una librería de optimización de código abierto especializada en la resolución de problemas de ruteo de vehículos (*Vehicle Routing Problems, VRP*).
 
