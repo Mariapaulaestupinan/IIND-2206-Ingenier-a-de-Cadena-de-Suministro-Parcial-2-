@@ -1408,7 +1408,7 @@ Una vez finaliza la ejecución del algoritmo, la ruta óptima se reconstruye uti
 ```
 ## Ruteo de vehículos
 
---
+---
 
 En esta sección se abordarán problemas de ruteo de vehículos utilizando la librería **PyVRP**.
 
