@@ -1880,11 +1880,11 @@ PyVRP requiere que `distance` y `duration` sean enteros. Dependiendo del origen 
  
 - **Coordenadas geográficas (latitud y longitud):** la distancia euclidiana no es válida con coordenadas geográficas porque un grado de latitud y un grado de longitud no miden lo mismo en kilómetros, y esa diferencia varía según la ubicación en el planeta. La forma correcta es usar la fórmula de **Haversine**, que calcula la distancia real en kilómetros sobre la superficie de la Tierra. Como el resultado es decimal, es obligatorio escalar las distancias y duraciones multiplicándolas por un factor suficientemente grande antes de convertirlas a entero.
 
-- **Matriz de distancias o duraciones con decimales:** si los valores de la matriz son decimales, aplicar `int()` directamente introduce un error. Si los valores son suficientemente grandes el error es despreciable. Si son pequeños o requieren precisión, se deben escalar también.
+- **Matriz de distancias o duraciones con decimales:** si los valores de la matriz son decimales, aplicar `int()` directamente introduce un error de truncamiento. En ese caso es necesario escalar. Si las distancias son decimales, se escala la distancia y también el `max_distance` para que PyVRP pueda compararlos en las mismas unidades. Si la duración es decimal, ya sea porque proviene de una matriz decimal o porque se calcula como `distancia / velocidad (Km/h) × 60`, se debe escalar junto con todos los tiempos del modelo `(tw_early, tw_late, service_duration, shift_duration)`.
   
 En todos los casos donde se escale, es necesario escalar de forma consistente todos los tiempos y costos del modelo (`tw_early`, `tw_late`, `service_duration`, `shift_duration`, `unit_distance_cost`, `unit_duration_cost`, `fixed_cost`) por el mismo factor, y desescalar los resultados al reportar.
 
-> **Nota:** si se escala la distancia, no se debe escalar `unit_distance_cost`, y si se escala la duración, no se debe escalar `unit_duration_cost`. Escalar ambos factores del mismo producto haría que ese componente del costo quede multiplicado por `ESCALA²` mientras que el `fixed_cost` y el `prize` solo por `ESCALA`, rompiendo el balance del objetivo. Adicionalmente, si el modelo tiene restricción de autonomía `(max_distance)`, esta también debe escalarse por el mismo factor que las distancias para que PyVRP pueda compararlas correctamente. Normalmente, se utiliza un valor de 100 para el parámetro `ESCALA`.
+> **Nota:** si se escala la distancia, no se debe escalar `unit_distance_cost`aunque este sea decimal, y si se escala la duración, no se debe escalar `unit_duration_cost` aunque este sea decimal. Escalar ambos factores del mismo producto haría que ese componente del costo quede multiplicado por `ESCALA²` mientras que el `fixed_cost` y el `prize` solo por `ESCALA`, rompiendo el balance del objetivo. Adicionalmente, si el modelo tiene restricción de autonomía `(max_distance)`, esta también debe escalarse por el mismo factor que las distancias para que PyVRP pueda compararlas correctamente. Normalmente, se utiliza un valor de 100 para el parámetro `ESCALA`.
 
 <details>
 <summary> Ejemplo 1 — Distancia euclidiana calculada desde coordenadas </summary>
@@ -2024,87 +2024,96 @@ El archivo `arcos_distancias_matriz.xlsx` contiene dos hojas:
 import pandas as pd
 from pyvrp import Model
 from pyvrp.stop import MaxRuntime
- 
+
+ESCALA    = 100
+VELOCIDAD = 40  # km/h
+
 m = Model()
 perfil = m.add_profile()
- 
+
 df = pd.read_excel("arcos_distancia_matriz.xlsx", sheet_name="Clientes")
- 
+
 # ── Depósito ──────────────────────────────────────────────────────
 fila_dep = df[df["nombre"] == "Deposito"].iloc[0]
-depot = m.add_depot(x=0,
-                    y=0, 
-                    tw_early = int(fila_dep["tw_early (min)"]),
-                    tw_late  = int(fila_dep["tw_late (min)"]),
-                    service_duration = int(fila_dep["service_duration (min)"]),
-                    name=fila_dep["nombre"])
- 
-# ── Clientes con location asignado por orden de aparición ─────────
+depot = m.add_depot(
+    x                = 0,
+    y                = 0,
+    tw_early         = int(fila_dep["tw_early (min)"]         * ESCALA),
+    tw_late          = int(fila_dep["tw_late (min)"]           * ESCALA),
+    service_duration = int(fila_dep["service_duration (min)"] * ESCALA),
+    name             = fila_dep["nombre"]
+)
+
+# ── Clientes ──────────────────────────────────────────────────────
 for _, row in df[df["nombre"] != "Deposito"].iterrows():
     m.add_client(
         x                = 0,
         y                = 0,
         delivery         = int(row["delivery"]),
-        tw_early         = int(row["tw_early (min)"]),
-        tw_late          = int(row["tw_late (min)"]),
-        service_duration = int(row["service_duration (min)"]),
+        tw_early         = int(row["tw_early (min)"]         * ESCALA),
+        tw_late          = int(row["tw_late (min)"]           * ESCALA),
+        service_duration = int(row["service_duration (min)"] * ESCALA),
         name             = str(row["nombre"])
     )
- 
+
 # ── Tipo de vehículo ──────────────────────────────────────────────
 m.add_vehicle_type(
     num_available      = 2,
     capacity           = 50,
-    tw_early           = 480,
-    tw_late            = 1080,
-    shift_duration     = 100,
-    unit_distance_cost = 3,
-    unit_duration_cost = 2,
+    tw_early           = int(480  * ESCALA),
+    tw_late            = int(1080 * ESCALA),
+    shift_duration     = int(100  * ESCALA),
+    unit_distance_cost = 3,      # no se escala: distancias sin escalar
+    unit_duration_cost = 2,      # no se escala: duración ya escalada y número entero
     profile            = perfil,
     name               = "Vehiculo"
 )
- 
+
 # ── Arcos desde matriz de distancias, duración desde velocidad ────
-df_dist   = pd.read_excel("arcos_distancia_matriz.xlsx", sheet_name="Distancias Km", index_col=0)
-VELOCIDAD = 40 # Km/ h
- 
-# Los nodos se recorren en el mismo orden en que fueron agregados al modelo
-locs  = list(m.locations)
-nodos = [loc.name for loc in locs]
- 
+df_dist = pd.read_excel("arcos_distancia_matriz.xlsx", sheet_name="Distancias Km", index_col=0)
+
+locs = list(m.locations)
+
+# Self loops
+for loc in locs:
+    m.add_edge(loc, loc, distance=0, duration=0, profile=perfil)
+
+# Arcos entre ubicaciones distintas
 for frm in locs:
     for to in locs:
+        if frm.name == to.name:
+            continue
         dist = df_dist.loc[frm.name, to.name]
         dur  = (dist / VELOCIDAD) * 60
         m.add_edge(frm, to,
                    distance = int(dist),
-                   duration = int(dur),
+                   duration = int(dur * ESCALA),
                    profile  = perfil)
- 
+
 # ── Resolver ──────────────────────────────────────────────────────
 result = m.solve(stop=MaxRuntime(3), seed=42)
 sol    = result.best
- 
-# ── Resultados ────────────────────────────────────────────────────
+
+# ── Resultados desescalados ───────────────────────────────────────
 print(f"Factible        : {sol.is_feasible()}")
 print(f"Distancia total : {sol.distance()} km")
-print(f"Duración total  : {sol.duration()} min")
-print(f"Costo distancia : {sol.distance_cost()}")
-print(f"Costo duración  : {sol.duration_cost()}")
-print(f"Costo total     : {sol.distance_cost() + sol.duration_cost()}")
- 
+print(f"Duración total  : {sol.duration() / ESCALA:.2f} min")
+print(f"Costo distancia : {sol.distance_cost():.2f}")
+print(f"Costo duración  : {sol.duration_cost() / ESCALA:.2f}")
+print(f"Costo total     : {sol.distance_cost() + sol.duration_cost() / ESCALA:.2f}")
+
 for route in sol.routes():
     nombres = [m.locations[v].name for v in route.visits()]
     print(f"\nRuta        : {' → '.join(nombres)}")
     print(f"  Distancia : {route.distance()} km")
-    print(f"  Duración  : {route.duration()} min")
+    print(f"  Duración  : {route.duration() / ESCALA:.2f} min")
 ```
  
 > **Nota:** Los nombres de las ubicaciones en el modelo deben coincidir exactamente con los nombres de las filas y columnas de la matriz, ya que los arcos se buscan por nombre con `df_dist.loc[frm.name, to.name]`. Cualquier diferencia de mayúsculas, espacios o caracteres hará que la búsqueda falle.
 
 > **Nota:** Este código funciona tanto para matrices simétricas como asimétricas, ya que recorre todos los pares ordenados `(frm, to)` y agrega un arco independiente para cada dirección.
 
-> **Nota:** En este ejemplo no se escala porque las distancias de la matriz ya son enteros en kilómetros, por lo que `int(dist)` no produce pérdida de información. La duración calculada como `(dist / VELOCIDAD) * 60` puede resultar decimal en algunos casos, pero el error de truncamiento con `int()` es de menos de un minuto, lo cual es despreciable para este tipo de problema. Si se requiere mayor precisión, se debe escalar toda la información del modelo por un factor común.
+> **Nota:** En este ejemplo las distancias ya son enteros en kilómetros, por lo que `int(dist)` no produce pérdida de información. Sin embargo, la duración calculada como `(dist / VELOCIDAD) * 60` puede resultar decimal, por lo que se escala por `ESCALA` junto con todos los tiempos del modelo para preservar precisión. `unit_duration_cost` no requiere escalamiento, ya que corresponde a un valor entero. En caso de que este valor fuera decimal, tampoco debería aplicarse ningún factor de escala, debido a que la variable de duración asociada ya fue escalada previamente.
 
 **Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/arcos_distancia_matriz.xlsx" download> Clientes Matriz Distancia</a>
 
@@ -2115,17 +2124,17 @@ Resumen general
 | Parámetro | Resultado |
 |-----------|-----------|
 | Distancia total recorrida | 69 km |
-| Duración total | 180 min |
+| Duración total | 180.50 min |
 | Costo por distancia | 207 |
-| Costo por duración | 360 |
-| Costo total | 567 |
+| Costo por duración | 361 |
+| Costo total | 568 |
 
 Rutas asignadas
 
 | Ruta | Distancia | Duración |
 |------|-----------|----------|
 | Cliente_4 → Cliente_3 | 30 km | 85 min |
-| Cliente_1 → Cliente_2 | 39 km | 95 min |
+| Cliente_1 → Cliente_2 | 39 km | 95.5 min |
 </details>
 
 <details>
@@ -2242,6 +2251,7 @@ Esto permite modelar dos tipos de restricciones operativas que no pueden expresa
 - **Restricciones sobre clientes:** ciertos vehículos solo pueden atender a un subconjunto de clientes. Por ejemplo, furgones refrigerados para clientes que requieren cadena de frío, y motos para clientes de paquetería ligera. Esto se modela asignando una distancia muy grande (`INF`) a los arcos que conectan con los clientes que no se pueden atender, haciendo que nunca se incluyan en ninguna ruta.
 - **Restricciones sobre caminos:** ciertos vehículos solo pueden circular por ciertas vías. Por ejemplo, los camiones de carga pesada solo pueden circular por vías principales debido a restricciones de peso y dimensiones, mientras que los furgones, al ser vehículos más compactos, tienen acceso tanto a vías principales como a vías secundarias, lo que les permite alcanzar zonas donde los camiones no pueden ingresar. Esto se modela con matrices de distancias distintas para cada perfil, donde los arcos no permitidos tienen distancia `INF`.
 En ambos casos, `INF` debe ser un número entero suficientemente grande para que los arcos nunca se elijan, pero que no cause desbordamiento numérico. Un valor como `100000` funciona bien en la mayoría de los casos.
+- **Velocidades heterogéneas:** cuando los vehículos de la flota tienen velocidades distintas, la duración de cada arco varía según el tipo de vehículo. Como PyVRP asigna una duración fija por arco, es necesario crear un perfil por tipo de vehículo donde cada perfil tenga matriz de duración con la velocidad correspondiente.
 
 <details>
 <summary> Ejemplo 1 — Vehículos con clientes restringidos </summary>
@@ -2537,6 +2547,143 @@ Rutas asignadas
 |----------|------|-----------|----------|
 | Furgón | Cliente_6 → Cliente_2 → Cliente_5 | 164.90 km | 133.52 min |
 | Furgón | Cliente_3 → Cliente_1 → Cliente_4 | 137.89 km | 100.53 min |
+
+</details>
+
+<details>
+<summary> Ejemplo 3 — Flota con velocidades heterogéneas </summary>
+ 
+TransRed opera con una flota mixta compuesta por **camiones**, **furgones** y **motos**, cada uno con una velocidad distinta. Como PyVRP asigna una duración fija por arco, es necesario crear un perfil por tipo de vehículo donde cada perfil tenga sus propias duraciones calculadas con la velocidad correspondiente. La matriz de distancias es la misma para todos, pero la duración de cada arco varía según el vehículo que lo recorre.
+ 
+El archivo `perfiles_velocidades_heterogeneas.xlsx` contiene tres hojas:
+ 
+- **Clientes:** nombre, demanda, ventanas de tiempo (min) y tiempo de servicio (min).
+- **Vehiculos:** nombre, cantidad, capacidad, velocidad (Km/h), ventanas de tiempo (min), duración del turno (min) y costos unitarios.
+- **Distancias:** matriz de distancias en km entre todas las ubicaciones.
+- 
+```python
+import pandas as pd
+from pyvrp import Model
+from pyvrp.stop import MaxRuntime
+ 
+ESCALA = 100    # factor de escala para distancias y duraciones decimales
+ 
+m = Model()
+perfiles = {}
+ 
+df_cli  = pd.read_excel("perfiles_velocidades_heterogeneas.xlsx", sheet_name="Clientes")
+df_veh  = pd.read_excel("perfiles_velocidades_heterogeneas.xlsx", sheet_name="Vehiculos")
+df_dist = pd.read_excel("perfiles_velocidades_heterogeneas.xlsx", sheet_name="Distancias", index_col=0)
+ 
+# ── Perfiles: uno por tipo de vehículo ────────────────────────────
+for _, row in df_veh.iterrows():
+    tipo = row["nombre"]
+    vel  = float(row["velocidad (Km/h)"])
+    p    = m.add_profile(name=tipo)
+    perfiles[tipo] = (p, vel)
+ 
+# ── Depósito ──────────────────────────────────────────────────────
+fila_dep = df_cli[df_cli["nombre"] == "Deposito"].iloc[0]
+m.add_depot(x=0, y=0,
+            tw_early         = int(fila_dep["tw_early (min)"]         * ESCALA),
+            tw_late          = int(fila_dep["tw_late (min)"]           * ESCALA),
+            service_duration = int(fila_dep["service_duration (min)"] * ESCALA),
+            name             = fila_dep["nombre"])
+ 
+# ── Clientes ──────────────────────────────────────────────────────
+for _, row in df_cli[df_cli["nombre"] != "Deposito"].iterrows():
+    m.add_client(x=0, y=0,
+                 delivery         = int(row["delivery"]),
+                 tw_early         = int(row["tw_early (min)"]         * ESCALA),
+                 tw_late          = int(row["tw_late (min)"]           * ESCALA),
+                 service_duration = int(row["service_duration (min)"] * ESCALA),
+                 name             = str(row["nombre"]))
+ 
+# ── Tipos de vehículo ─────────────────────────────────────────────
+for _, row in df_veh.iterrows():
+    nombre = row["nombre"]
+    p, vel = perfiles[nombre]
+    m.add_vehicle_type(
+        num_available      = int(row["num_available"]),
+        capacity           = int(row["capacity"]),
+        tw_early           = int(row["tw_early (min)"]       * ESCALA),
+        tw_late            = int(row["tw_late (min)"]         * ESCALA),
+        shift_duration     = int(row["shift_duration (min)"] * ESCALA),
+        unit_distance_cost = int(row["unit_distance_cost"]),
+        unit_duration_cost = int(row["unit_duration_cost"]),
+        profile            = p,
+        name               = nombre
+    )
+ 
+# ── Arcos ─────────────────────────────────────────────────────────
+# Cada perfil recibe sus propios arcos con duraciones calculadas
+# según la velocidad del vehículo correspondiente
+locs = list(m.locations)
+ 
+# Self loops: distancia y duración 0 para todos los perfiles
+for loc in locs:
+    for p, vel in perfiles.values():
+        m.add_edge(loc, loc, distance=0, duration=0, profile=p)
+ 
+# Arcos entre ubicaciones distintas
+for frm in locs:
+    for to in locs:
+        if frm.name == to.name:
+            continue
+        dist_km = df_dist.loc[frm.name, to.name]
+        for tipo, (p, vel) in perfiles.items():
+            dur_min = (dist_km / vel) * 60
+            m.add_edge(frm, to,
+                       distance = int(dist_km * ESCALA),
+                       duration = int(dur_min  * ESCALA),
+                       profile  = p)
+ 
+# ── Resolver ──────────────────────────────────────────────────────
+result = m.solve(stop=MaxRuntime(3), seed=42)
+sol    = result.best
+ 
+# ── Resultados ────────────────────────────────────────────────────
+print(f"Factible        : {sol.is_feasible()}")
+print(f"Distancia total : {sol.distance()      / ESCALA:.2f} km")
+print(f"Duración total  : {sol.duration()      / ESCALA:.2f} min")
+print(f"Costo distancia : {sol.distance_cost() / ESCALA:.2f}")
+print(f"Costo duración  : {sol.duration_cost() / ESCALA:.2f}")
+print(f"Costo total     : {(sol.distance_cost() + sol.duration_cost()) / ESCALA:.2f}")
+ 
+for route in sol.routes():
+    vt      = m.vehicle_types[route.vehicle_type()]
+    nombres = [m.locations[v].name for v in route.visits()]
+    print(f"\n  {vt.name}: {' → '.join(nombres)}")
+    print(f"    Distancia : {route.distance() / ESCALA:.2f} km")
+    print(f"    Duración  : {route.duration() / ESCALA:.2f} min")
+```
+ 
+> **Escalado:** las distancias de la matriz son decimales, por lo que se escala por `ESCALA = 100` tanto la distancia como la duración de cada arco. Todos los tiempos del modelo se escalan por el mismo factor. `unit_distance_cost` y `unit_duration_cost` no se escalan aunque sean decimales, ya que la distancia y la duración sí fueron escaladas.
+
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/perfiles_velocidades_heterogeneas.xlsx" download> Perfiles Caminos Restringidos</a>
+
+**Solución:**
+Resumen general
+
+| Parámetro | Resultado |
+|-----------|-----------|
+| Distancia total recorrida | 185.66 km |
+| Duración total | 598.72 min |
+| Costo por distancia | 532.16 |
+| Costo por duración | 822.15 |
+| Costo total | 1354.31 |
+
+Rutas asignadas
+
+| Vehículo | Ruta | Distancia | Duración |
+|----------|------|-----------|----------|
+| Camion | Cliente_3 → Cliente_5 → Cliente_19 → Cliente_7 | 27.79 km | 114.63 min |
+| Camion | Cliente_4 → Cliente_8 → Cliente_6 → Cliente_18 | 24.38 km | 108.80 min |
+| Furgón | Cliente_10 → Cliente_1 → Cliente_13 | 26.20 km | 86.92 min |
+| Furgón | Cliente_12 → Cliente_11 → Cliente_15 → Cliente_17 | 30.30 km | 99.38 min |
+| Moto | Cliente_21 → Cliente_14 → Cliente_16 | 35.79 km | 80.79 min |
+| Moto | Cliente_9 → Cliente_20 | 30.40 km | 67.40 min |
+| Moto | Cliente_2 | 10.80 km | 40.80 min |
 
 </details>
 
