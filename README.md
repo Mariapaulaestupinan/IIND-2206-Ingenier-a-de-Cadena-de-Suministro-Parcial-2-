@@ -1884,7 +1884,7 @@ PyVRP requiere que `distance` y `duration` sean enteros. Dependiendo del origen 
   
 En todos los casos donde se escale, es necesario escalar de forma consistente todos los tiempos y costos del modelo (`tw_early`, `tw_late`, `service_duration`, `shift_duration`, `unit_distance_cost`, `unit_duration_cost`, `fixed_cost`) por el mismo factor, y desescalar los resultados al reportar.
 
-> **Nota:** si se escala la distancia, no se debe escalar `unit_distance_cost`, y si se escala la duración, no se debe escalar `unit_duration_cost`. Escalar ambos factores del mismo producto haría que ese componente del costo quede multiplicado por `ESCALA²` mientras que el `fixed_cost` y el `prize` solo por `ESCALA`, rompiendo el balance del objetivo. Adicionalmente, si el modelo tiene restricción de autonomía `(max_distance)`, esta también debe escalarse por el mismo factor que las distancias para que PyVRP pueda compararlas correctamente.
+> **Nota:** si se escala la distancia, no se debe escalar `unit_distance_cost`, y si se escala la duración, no se debe escalar `unit_duration_cost`. Escalar ambos factores del mismo producto haría que ese componente del costo quede multiplicado por `ESCALA²` mientras que el `fixed_cost` y el `prize` solo por `ESCALA`, rompiendo el balance del objetivo. Adicionalmente, si el modelo tiene restricción de autonomía `(max_distance)`, esta también debe escalarse por el mismo factor que las distancias para que PyVRP pueda compararlas correctamente. Normalmente, se utiliza un valor de 100 para el parámetro `ESCALA`.
 
 <details>
 <summary> Ejemplo 1 — Distancia euclidiana calculada desde coordenadas </summary>
@@ -1897,7 +1897,7 @@ import pandas as pd
 from pyvrp import Model
 from pyvrp.stop import MaxRuntime
 
-ESCALA    = 10000   # factor de escala 
+ESCALA    = 100     # factor de escala 
 VELOCIDAD = 40      # km/h
 
 def haversine(lat1, lon1, lat2, lon2):
@@ -1991,18 +1991,18 @@ Resumen general
 
 | Parámetro | Resultado |
 |-----------|-----------|
-| Distancia total recorrida | 9.8335 km |
-| Duración total | 91.75 min |
-| Costo por distancia | 29.50 |
-| Costo por duración | 183.50 |
-| Costo total | 213.00 |
+| Distancia total recorrida | 9.81 km |
+| Duración total | 91.71 min |
+| Costo por distancia | 29.43 |
+| Costo por duración | 183.42 |
+| Costo total | 212.85 |
 
 Rutas asignadas
 
 | Ruta | Distancia | Duración |
 |------|-----------|----------|
-| Cliente_2 → Cliente_4 | 6.4717 km | 46.71 min |
-| Cliente_3 → Cliente_1 | 3.3618 km | 45.04 min |
+| Cliente_2 → Cliente_4 | 6.46 km | 46.69 min |
+| Cliente_3 → Cliente_1 | 3.35 km | 45.02 min |
 
 </details>
 
