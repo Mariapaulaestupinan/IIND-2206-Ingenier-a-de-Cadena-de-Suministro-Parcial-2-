@@ -2560,7 +2560,6 @@ El archivo `perfiles_velocidades_heterogeneas.xlsx` contiene tres hojas:
 - **Clientes:** nombre, demanda, ventanas de tiempo (min) y tiempo de servicio (min).
 - **Vehiculos:** nombre, cantidad, capacidad, velocidad (Km/h), ventanas de tiempo (min), duración del turno (min) y costos unitarios.
 - **Distancias:** matriz de distancias en km entre todas las ubicaciones.
-- 
 ```python
 import pandas as pd
 from pyvrp import Model
@@ -2660,7 +2659,7 @@ for route in sol.routes():
  
 > **Escalado:** las distancias de la matriz son decimales, por lo que se escala por `ESCALA = 100` tanto la distancia como la duración de cada arco. Todos los tiempos del modelo se escalan por el mismo factor. `unit_distance_cost` y `unit_duration_cost` no se escalan aunque sean decimales, ya que la distancia y la duración sí fueron escaladas.
 
-**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND-2206-Ingenieria-de-Cadena-de-Suministro/main/perfiles_velocidades_heterogeneas.xlsx" download> Perfiles Caminos Restringidos</a>
+**Base de datos:** <a href="https://raw.githubusercontent.com/Mariapaulaestupinan/IIND---2206-Ingenier-a-de-Cadena-de-Suministro-2026---19/main/perfiles_velocidades_heterogeneas.xlsx" download>Perfiles Caminos Restringidos</a>
 
 **Solución:**
 Resumen general
